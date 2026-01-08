@@ -1,0 +1,27 @@
+# Build artifacts
+/target/
+debug/
+*.pdb
+
+# Cargo backup files
+**/*.rs.bk
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Claude Code
+.claude/

@@ -1,0 +1,83 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT"
+
+[workspace.dependencies]
+# Internal crates
+hyperlend-core = { path = "crates/core" }
+hyperlend-api = { path = "crates/api" }
+hyperlend-chain = { path = "crates/chain" }
+
+# Async runtime
+tokio = { version = "1", features = ["full", "parking_lot"] }
+futures = "0.3"
+
+# Ethereum
+alloy = { version = "0.12", features = [
+    "full",
+    "providers",
+    "transports",
+    "pubsub",
+    "signers",
+    "signer-local",
+    "contract",
+    "rpc-types",
+    "json-rpc",
+] }
+
+# Concurrent data structures
+dashmap = "6"
+smallvec = { version = "1", features = ["union", "const_generics"] }
+arrayvec = "0.7"
+parking_lot = "0.12"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Serialization
+serde = { version = "=1.0.215", features = ["derive"] }
+serde_json = "1"
+
+# Utilities
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+hex = "0.4"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+dotenvy = "0.15"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Config
+toml = "0.8"
+
+[package]
+name = "hyperlend-liquidator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+hyperlend-core.workspace = true
+hyperlend-api.workspace = true
+hyperlend-chain.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+dotenvy.workspace = true
+anyhow.workspace = true
+alloy.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[[bin]]
+name = "liquidator"
+path = "src/main.rs"

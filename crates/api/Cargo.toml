@@ -1,0 +1,27 @@
+[package]
+name = "hyperlend-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Ethereum types
+alloy.workspace = true
+
+# Async
+tokio.workspace = true
+
+# HTTP client
+reqwest.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Concurrent data structures
+dashmap.workspace = true
+
+# Utilities
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true

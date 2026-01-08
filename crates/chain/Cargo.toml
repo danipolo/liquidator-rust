@@ -1,0 +1,32 @@
+[package]
+name = "hyperlend-chain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Ethereum
+alloy.workspace = true
+
+# Async
+tokio.workspace = true
+futures.workspace = true
+
+# HTTP
+reqwest.workspace = true
+
+# Concurrent data structures
+dashmap.workspace = true
+smallvec.workspace = true
+parking_lot.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Utilities
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+hex.workspace = true

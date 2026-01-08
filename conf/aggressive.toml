@@ -1,0 +1,43 @@
+# Aggressive profile - maximum speed and opportunity capture
+# Use with: BOT_PROFILE=aggressive cargo run
+
+profile = "aggressive"
+
+[position]
+# Lower thresholds to capture more opportunities
+dust_threshold_usd = 1.0        # $1 minimum
+bad_debt_hf_threshold = 0.05
+seed_hf_max = 1.20              # Wider net
+seed_limit = 300
+
+[tiers]
+# Wider critical/hot bands for earlier reaction
+critical_hf_threshold = 1.03
+hot_hf_threshold = 1.10
+warm_hf_threshold = 1.20
+critical_trigger_distance_pct = 1.5
+hot_trigger_distance_pct = 4.0
+warm_trigger_distance_pct = 8.0
+
+[scanner]
+# Faster update cycles
+bootstrap_interval_secs = 30
+critical_interval_ms = 50       # Very fast critical updates
+hot_interval_ms = 250
+warm_interval_secs = 1
+cold_interval_secs = 5
+dual_oracle_interval_secs = 2
+heartbeat_interval_secs = 1
+
+[pre_staging]
+staging_hf_threshold = 1.08     # Stage earlier
+staged_tx_ttl_secs = 10         # Shorter TTL, fresher data
+price_deviation_threshold_pct = 0.3
+min_debt_usd_to_stage = 1.0
+
+[liquidation]
+close_factor = 0.5
+min_profit_usd = 0.5            # Lower profit threshold
+max_slippage_pct = 1.0
+use_multi_hop = true
+gas_price_multiplier = 1.2      # Higher gas for priority
