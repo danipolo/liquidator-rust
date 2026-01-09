@@ -22,7 +22,5 @@ default_liquidation_bonus_bps = 500
 liquidation_threshold = 1.0
 
 [protocol.api]
-# BlockAnalitica API for position discovery
-position_api = "https://hyperlend-api.blockanalitica.com"
 # Liqd.ag API for swap routing
 swap_api = "https://liqd.ag/api"

@@ -1,7 +1,6 @@
 //! Liquidator API clients for external services.
 //!
 //! This crate provides HTTP clients for:
-//! - BlockAnalitica: At-risk wallet discovery and position data
 //! - Swap routing: Abstracted swap routing for liquidation execution
 //!
 //! # Swap Routing
@@ -11,14 +10,7 @@
 //! - [`swap::UniswapV3Router`]: Uniswap V3 for Plasma, Arbitrum, Base, Optimism, Celo
 //! - `SwapRouter` trait for implementing additional routers
 
-mod blockanalitica;
 pub mod swap;
-
-// BlockAnalitica API
-pub use blockanalitica::{
-    AtRiskWallet, BlockAnaliticaClient, PositionDistribution, ProfitabilityFilter, WalletAsset,
-    WalletStats,
-};
 
 // Swap routing (canonical types)
 pub use swap::{

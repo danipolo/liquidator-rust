@@ -19,7 +19,7 @@ use anyhow::Result;
 use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-use liquidator_api::{BlockAnaliticaClient, LiqdRouter, SwapRouterRegistry, UniswapV3Router};
+use liquidator_api::{LiqdRouter, SwapRouterRegistry, UniswapV3Router};
 use liquidator_chain::{
     DualOracleMonitor, EventListener, EventOracleType, LiquidatorContract, OracleMonitor,
     ProviderManager, TransactionSender, gas::create_gas_strategy,
@@ -161,15 +161,6 @@ async fn initialize_from_deployment(deployment: ResolvedDeployment) -> Result<Sc
     // Pre-stager
     let pre_stager = Arc::new(PreStager::new());
 
-    // Position discovery API client
-    let blockanalitica = if let Some(url) = &deployment.protocol.position_api_url {
-        info!(url = %url, "Using position discovery API");
-        Arc::new(BlockAnaliticaClient::with_base_url(url.clone()))
-    } else {
-        info!("No position API configured - position discovery disabled");
-        Arc::new(BlockAnaliticaClient::new())
-    };
-
     // Swap router registry
     let router_registry = create_router_from_config(
         chain.chain_id,
@@ -233,7 +224,6 @@ async fn initialize_from_deployment(deployment: ResolvedDeployment) -> Result<Sc
         pre_stager,
         liquidator,
         event_listener,
-        blockanalitica,
         provider,
         assets,
         scanner_config,

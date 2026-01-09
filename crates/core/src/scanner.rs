@@ -20,7 +20,7 @@ use crate::position::{CollateralData, DebtData, PositionTier, TrackedPosition};
 use crate::position_tracker::TieredPositionTracker;
 use crate::pre_staging::PreStager;
 use crate::sensitivity::PositionSensitivity;
-use liquidator_api::{BlockAnaliticaClient, SwapParams};
+use liquidator_api::SwapParams;
 use liquidator_chain::{
     DualOracleMonitor, EventListener, OracleMonitor, OracleUpdate, PoolEvent, ProviderManager,
 };
@@ -83,8 +83,6 @@ pub struct Scanner {
     liquidator: Arc<Liquidator>,
     /// Event listener
     event_listener: Arc<EventListener>,
-    /// BlockAnalitica API client
-    blockanalitica: Arc<BlockAnaliticaClient>,
     /// Provider manager
     provider: Arc<ProviderManager>,
     /// Asset registry
@@ -103,7 +101,6 @@ impl Scanner {
         pre_stager: Arc<PreStager>,
         liquidator: Arc<Liquidator>,
         event_listener: Arc<EventListener>,
-        blockanalitica: Arc<BlockAnaliticaClient>,
         provider: Arc<ProviderManager>,
         assets: Arc<AssetRegistry>,
         config: ScannerConfig,
@@ -116,7 +113,6 @@ impl Scanner {
             pre_stager,
             liquidator,
             event_listener,
-            blockanalitica,
             provider,
             assets,
             config,
@@ -124,106 +120,12 @@ impl Scanner {
     }
 
     /// Bootstrap the scanner with initial data.
+    /// Positions are discovered via pool events (Supply, Withdraw, Borrow, Repay, LiquidationCall).
     #[instrument(skip(self))]
     pub async fn bootstrap(&self) -> Result<()> {
         info!("Starting bootstrap...");
 
-        // 0. Log wallet stats to show how many positions exist in total
-        match self.blockanalitica.get_wallet_stats().await {
-            Ok(stats) => {
-                info!(
-                    bad_debt_wallets = stats.bad_debt_total,
-                    at_risk_wallets = stats.at_risk_total,
-                    total = stats.bad_debt_total + stats.at_risk_total,
-                    min_collateral_threshold = format!("${:.2}", stats.min_collateral_threshold),
-                    "BlockAnalitica wallet inventory"
-                );
-
-                // Also analyze position size distribution on first bootstrap
-                if let Err(e) = self.blockanalitica.analyze_position_distribution().await {
-                    debug!(error = %e, "Failed to analyze position distribution");
-                }
-            }
-            Err(e) => {
-                warn!(error = %e, "Failed to fetch wallet stats");
-            }
-        }
-
-        // 1. Fetch at-risk wallets from BlockAnalitica (bad debt + approaching liquidation)
-        let bad_debt_wallets = self
-            .blockanalitica
-            .fetch_at_risk_wallets(self.config.seed_hf_max, self.config.seed_limit)
-            .await?;
-
-        // Also fetch wallets approaching liquidation (HF 1.0-1.25 range)
-        let approaching_wallets = self
-            .blockanalitica
-            .fetch_wallets_at_risk(1.0, 1.25, self.config.seed_limit)
-            .await
-            .unwrap_or_default();
-
-        // Combine and dedupe
-        let mut wallets = bad_debt_wallets;
-        for wallet in approaching_wallets {
-            if !wallets.iter().any(|w| w.wallet_address == wallet.wallet_address) {
-                wallets.push(wallet);
-            }
-        }
-
-        info!(
-            total = wallets.len(),
-            "Fetched combined at-risk wallets (bad-debt + approaching)"
-        );
-
-        // 2. Fetch full position data and classify
-        // OPTIMIZATION: Process wallets in parallel with bounded concurrency (5-10x faster)
-        let total_wallets = wallets.len();
-        info!(total = total_wallets, "Processing wallets in parallel...");
-
-        // Collect valid addresses
-        let addresses: Vec<Address> = wallets
-            .iter()
-            .filter_map(|w| w.address())
-            .collect();
-
-        // Use the batch method with bounded parallelism (20 concurrent)
-        let results = self.provider.get_positions_batch(&addresses, 20).await;
-
-        // Process results
-        let mut success_count = 0;
-        let mut error_count = 0;
-
-        for (user, result) in results {
-            match result {
-                Ok((supplies, borrows)) => {
-                    if supplies.is_empty() && borrows.is_empty() {
-                        self.tracker.remove(&user);
-                        continue;
-                    }
-
-                    // Build and track position (inline version of process_wallet logic)
-                    if let Err(e) = self.update_position_from_data(&user, supplies, borrows).await {
-                        warn!(user = %user, error = %e, "Failed to process position");
-                        error_count += 1;
-                    } else {
-                        success_count += 1;
-                    }
-                }
-                Err(e) => {
-                    warn!(user = %user, error = %e, "Failed to fetch position data");
-                    error_count += 1;
-                }
-            }
-        }
-
-        info!(
-            total = total_wallets,
-            success = success_count,
-            errors = error_count,
-            "Finished processing all wallets"
-        );
-
-        // Log tracker stats after wallet processing
+        // Log tracker stats
         let stats = self.tracker.stats();
         info!(
             critical = stats.critical_count,
@@ -231,13 +133,13 @@ impl Scanner {
             warm = stats.warm_count,
             cold = stats.cold_count,
             total = stats.total_positions(),
-            "Tracker stats after wallet processing"
+            "Current tracker stats"
         );
 
-        // 3. Rebuild trigger index
+        // 1. Rebuild trigger index
         self.tracker.rebuild_trigger_index();
 
-        // 4. Pre-stage critical positions
+        // 2. Pre-stage critical positions
         let critical = self.tracker.critical_positions();
         info!(count = critical.len(), "Pre-staging critical positions");
 
@@ -247,14 +149,14 @@ impl Scanner {
             }
         }
 
-        // 5. Initialize oracle prices
+        // 3. Initialize oracle prices
         self.oracle_monitor.refresh_all_prices().await?;
 
-        // 6. Execute liquidations for positions that are ALREADY liquidatable
+        // 4. Execute liquidations for positions that are ALREADY liquidatable
         let critical_for_liq = self.tracker.critical_positions();
         info!(
             critical_count = critical_for_liq.len(),
-            "Step 6: Checking critical positions for immediate liquidation"
+            "Checking critical positions for immediate liquidation"
         );
 
         let mut liquidated_count = 0;
@@ -624,7 +526,7 @@ impl Scanner {
         loop {
             ticker.tick().await;
 
-            // Resync with BlockAnalitica
+            // Periodic resync: refresh oracle prices and check positions
             if let Err(e) = self.bootstrap().await {
                 warn!(error = %e, "Bootstrap resync failed");
             }
@@ -789,71 +691,6 @@ impl Scanner {
         Ok(())
     }
 
-    /// Update position from pre-fetched data (for batch processing).
-    /// Same logic as process_wallet but without fetching.
-    async fn update_position_from_data(
-        &self,
-        user: &Address,
-        supplies: Vec<liquidator_chain::BalanceData>,
-        borrows: Vec<liquidator_chain::BalanceData>,
-    ) -> Result<()> {
-        let mut position = TrackedPosition::new(*user);
-
-        // Process supplies
-        for supply in supplies {
-            let collateral = CollateralData {
-                asset: supply.underlying,
-                amount: supply.amount,
-                price: supply.price,
-                decimals: supply.decimals,
-                value_usd: CollateralData::calculate_usd_value(
-                    supply.amount,
-                    supply.price,
-                    supply.decimals,
-                ),
-                liquidation_threshold: supply.liquidation_threshold,
-                enabled: true,
-            };
-            position.collaterals.push((supply.underlying, collateral));
-        }
-
-        // Process borrows
-        for borrow in borrows {
-            let debt = DebtData {
-                asset: borrow.underlying,
-                amount: borrow.amount,
-                price: borrow.price,
-                decimals: borrow.decimals,
-                value_usd: DebtData::calculate_usd_value(
-                    borrow.amount,
-                    borrow.price,
-                    borrow.decimals,
-                ),
-            };
-            position.debts.push((borrow.underlying, debt));
-        }
-
-        // Calculate health factor and tier
-        position.health_factor = position.calculate_health_factor();
-        position.update_tier();
-        position.state_hash = position.compute_state_hash();
-
-        // Skip tracking bad debt positions entirely
-        if position.is_bad_debt() {
-            return Ok(());
-        }
-
-        // Compute sensitivity for critical/hot tiers
-        if matches!(position.tier, PositionTier::Critical | PositionTier::Hot) {
-            position.sensitivity =
-                Some(PositionSensitivity::compute(&position, self.tracker.prices()));
-        }
-
-        self.tracker.upsert(position);
-
-        Ok(())
-    }
-
     async fn stage_position(&self, position: &TrackedPosition) -> Result<()> {
         if !self.pre_stager.should_stage(position) {
             debug!(
@@ -998,7 +835,6 @@ impl Scanner {
             pre_stager: self.pre_stager.clone(),
             liquidator: self.liquidator.clone(),
             event_listener: self.event_listener.clone(),
-            blockanalitica: self.blockanalitica.clone(),
             provider: self.provider.clone(),
             assets: self.assets.clone(),
             config: self.config.clone(),

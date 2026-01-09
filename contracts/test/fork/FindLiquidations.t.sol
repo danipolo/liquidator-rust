@@ -46,7 +46,7 @@ contract FindLiquidationsTest is Test {
         console.log("Current block:", block.number);
         console.log("Searching for positions with debt...");
 
-        // Real at-risk positions from BlockAnalitica
+        // Sample at-risk positions for testing
         address[10] memory candidates = [
             0x308A31d418f62711D5D71d71fDBFcd74968883F8, // HF: 0.965 - LIQUIDATABLE
             0xf6a52dAFf4a81202A04864dA210A431f081f6bB0, // HF: 0.996 - at risk

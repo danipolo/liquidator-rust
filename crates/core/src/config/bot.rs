@@ -49,7 +49,7 @@ pub struct PositionConfig {
     #[serde(default = "default_bad_debt_hf")]
     pub bad_debt_hf_threshold: f64,
 
-    /// Maximum HF for initial seeding from BlockAnalitica
+    /// Maximum HF for position tracking
     #[serde(default = "default_seed_hf_max")]
     pub seed_hf_max: f64,
 
