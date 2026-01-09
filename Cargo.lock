@@ -1876,81 +1876,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperlend-api"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "dashmap",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hyperlend-chain"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "chrono",
- "dashmap",
- "futures",
- "hex",
- "parking_lot",
- "reqwest",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "hyperlend-core"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "arrayvec",
- "chrono",
- "dashmap",
- "futures",
- "hyperlend-api",
- "hyperlend-chain",
- "parking_lot",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror",
- "tokio",
- "toml",
- "tracing",
-]
-
-[[package]]
-name = "hyperlend-liquidator"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "dotenvy",
- "hyperlend-api",
- "hyperlend-chain",
- "hyperlend-core",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "iana-time-zone"
 version = "0.1.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2245,6 +2170,86 @@ name = "linux-raw-sys"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
+
+[[package]]
+name = "liquidator"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "dotenvy",
+ "liquidator-api",
+ "liquidator-chain",
+ "liquidator-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "liquidator-api"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "dashmap",
+ "hex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "liquidator-chain"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dashmap",
+ "futures",
+ "hex",
+ "parking_lot",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tracing",
+]
+
+[[package]]
+name = "liquidator-core"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "arrayvec",
+ "chrono",
+ "dashmap",
+ "futures",
+ "liquidator-api",
+ "liquidator-chain",
+ "parking_lot",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tracing",
+]
 
 [[package]]
 name = "litemap"
@@ -2893,6 +2898,12 @@ dependencies = [
  "memchr",
  "regex-syntax",
 ]
+
+[[package]]
+name = "regex-lite"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d942b98df5e658f56f20d592c7f868833fe38115e65c33003d8cd224b0155da"
 
 [[package]]
 name = "regex-syntax"

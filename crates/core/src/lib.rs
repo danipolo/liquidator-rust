@@ -1,4 +1,4 @@
-//! HyperLend core liquidation logic.
+//! Liquidator core logic.
 //!
 //! This crate provides the core liquidation bot functionality:
 //! - Asset registry with oracle configurations
@@ -8,6 +8,8 @@
 //! - Transaction pre-staging for critical positions
 //! - Heartbeat prediction for oracle updates
 //! - Scanner orchestration
+//!
+//! Supports multiple lending protocols (AAVE v3/v4) and EVM chains.
 
 mod assets;
 pub mod config;
@@ -21,10 +23,14 @@ mod sensitivity;
 mod trigger_index;
 pub mod u256_math;
 
-pub use assets::{Asset, AssetRegistry, OracleType, ASSETS, REGISTRY};
-pub use config::{BotConfig, config, init_config};
+pub use assets::{Asset, AssetRegistry, DynamicAsset, DynamicAssetRegistry, OracleType, ASSETS, REGISTRY};
+pub use config::{
+    BotConfig, config, init_config, load_deployment, load_deployment_from_env,
+    ResolvedDeployment, ResolvedAsset, ResolvedContracts, ChainDetails as ResolvedChainDetails,
+    ProtocolDetails as ResolvedProtocolDetails, RpcUrls, GasDetails,
+};
 pub use heartbeat::HeartbeatPredictor;
-pub use liquidator::{Liquidator, LiquidationResult, ProfitEstimate};
+pub use liquidator::{Liquidator, LiquidationParams, LiquidationResult, ProfitEstimate};
 pub use position::{CollateralData, DebtData, PositionTier, TrackedPosition};
 pub use position_tracker::TieredPositionTracker;
 pub use pre_staging::{PreStager, StagedLiquidation};

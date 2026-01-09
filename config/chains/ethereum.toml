@@ -1,0 +1,25 @@
+# Ethereum Mainnet Chain Configuration
+
+[chain]
+chain_id = 1
+name = "Ethereum Mainnet"
+native_token = "ETH"
+block_time_ms = 12000
+explorer_url = "https://etherscan.io"
+
+[chain.rpc]
+# Environment variables can be referenced with ${VAR_NAME}
+http = "${ETH_HTTP_RPC}"
+ws = "${ETH_WS_RPC}"
+archive = "${ETH_ARCHIVE_RPC}"
+send = "${ETH_SEND_RPC}"
+
+[chain.gas]
+# Ethereum uses EIP-1559 gas pricing
+pricing = "Eip1559"
+limit_multiplier = 1.2
+max_gas_price_gwei = 500.0
+# Priority fee for faster inclusion
+priority_fee_gwei = 2.0
+# Base fee buffer multiplier (2x for safe inclusion)
+base_fee_buffer = 2.0

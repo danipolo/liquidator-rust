@@ -1,11 +1,17 @@
-//! HyperLend Liquidation Bot
+//! Liquidation Bot
 //!
-//! High-performance liquidation bot for HyperLend (Aave V3 fork) on HyperLiquid EVM.
+//! High-performance liquidation bot for AAVE v3/v4 forks on multiple EVM chains.
 //! Features:
 //! - Event-driven architecture via WebSocket subscriptions
 //! - Tiered position tracking (Critical/Hot/Warm/Cold)
 //! - Pre-staged transactions for sub-100ms latency
 //! - DualOracle monitoring for LST arbitrage opportunities
+//! - Multi-protocol support (AAVE v3, v4, and other ABIs)
+//! - Multi-chain deployment (configurable RPC, gas, native tokens)
+//!
+//! Configuration:
+//! All configuration is loaded from TOML files in the config/ directory.
+//! Set DEPLOYMENT env var to select deployment (defaults to "hyperlend-prod").
 
 use std::sync::Arc;
 
@@ -13,28 +19,18 @@ use anyhow::Result;
 use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
-use hyperlend_api::{BlockAnaliticaClient, LiqdClient};
-use hyperlend_chain::{
-    DualOracleMonitor, EventListener, LiquidatorContract, OracleMonitor, OracleType,
-    ProviderManager, TransactionSender,
+use liquidator_api::{BlockAnaliticaClient, LiqdRouter, SwapRouterRegistry, UniswapV3Router};
+use liquidator_chain::{
+    DualOracleMonitor, EventListener, EventOracleType, LiquidatorContract, OracleMonitor,
+    ProviderManager, TransactionSender, gas::create_gas_strategy,
 };
-use hyperlend_core::{
-    AssetRegistry, BotConfig, HeartbeatPredictor, Liquidator, PreStager, Scanner, ScannerConfig,
-    TieredPositionTracker, ASSETS, init_config,
+use liquidator_core::{
+    AssetRegistry, HeartbeatPredictor, Liquidator, PreStager, Scanner, ScannerConfig,
+    TieredPositionTracker, init_config, load_deployment_from_env, ResolvedDeployment,
 };
 
-/// Environment variable names.
-mod env {
-    pub const ALCHEMY_WS_URL: &str = "ALCHEMY_WS_URL";
-    pub const ALCHEMY_HTTP_URL: &str = "ALCHEMY_HTTP_URL";
-    pub const ARCHIVE_RPC: &str = "ARCHIVE_RPC";
-    pub const SEND_RPC: &str = "SEND_RPC";
-    pub const PRIVATE_KEY: &str = "PRIVATE_KEY";
-    pub const PROFIT_RECEIVER: &str = "PROFIT_RECEIVER";
-    pub const POOL: &str = "POOL";
-    pub const BALANCES_READER: &str = "BALANCES_READER";
-    pub const LIQUIDATOR: &str = "LIQUIDATOR";
-}
+/// Environment variable for private key (required).
+const PRIVATE_KEY_ENV: &str = "PRIVATE_KEY";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -49,25 +45,27 @@ async fn main() -> Result<()> {
         .with(fmt::layer())
         .with(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info,hyperlend_core=debug,hyperlend_chain=debug")),
+                .unwrap_or_else(|_| EnvFilter::new("info,liquidator_core=debug,liquidator_chain=debug")),
         )
         .init();
 
-    // Load and initialize bot config (MUST be done before any core module usage)
-    // Use BOT_PROFILE env var to select: testing, production, aggressive, or file path
-    let bot_config = BotConfig::from_env();
-    bot_config.log_config();
-    init_config(bot_config);
+    info!("Starting Liquidation Bot");
 
-    info!("Starting HyperLend Liquidation Bot");
-    info!("Chain: HyperLiquid EVM (999)");
-    info!("Block time: 200ms");
+    // Load deployment configuration from TOML files
+    let deployment = load_deployment_from_env()?;
 
-    // Load RPC/contract configuration
-    let config = load_config()?;
+    // Initialize bot config from deployment
+    deployment.bot.log_config();
+    init_config(deployment.bot.clone());
 
-    // Initialize components
-    let (scanner, _handles) = initialize_components(config).await?;
+    // Log deployment info
+    info!("Deployment: {}", deployment.name);
+    info!("Chain: {} ({})", deployment.chain.name, deployment.chain.chain_id);
+    info!("Block time: {}ms", deployment.chain.block_time_ms);
+    info!("Protocol: {} ({})", deployment.protocol.name, deployment.protocol.version);
+
+    // Initialize components from deployment config
+    let scanner = initialize_from_deployment(deployment).await?;
 
     // Bootstrap
     info!("Bootstrapping...");
@@ -80,85 +78,49 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Configuration loaded from environment.
-struct Config {
-    ws_url: String,
-    http_url: String,
-    archive_url: String,
-    send_url: String,
-    pool: alloy::primitives::Address,
-    balances_reader: alloy::primitives::Address,
-    liquidator_contract: alloy::primitives::Address,
-    profit_receiver: alloy::primitives::Address,
-    private_key: String,
-}
-
-fn load_config() -> Result<Config> {
-    let get_env = |name: &str| -> Result<String> {
-        std::env::var(name).map_err(|_| anyhow::anyhow!("Missing env var: {}", name))
-    };
-
-    let get_address = |name: &str| -> Result<alloy::primitives::Address> {
-        get_env(name)?
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Invalid address for {}: {}", name, e))
-    };
-
-    Ok(Config {
-        ws_url: get_env(env::ALCHEMY_WS_URL)?,
-        http_url: get_env(env::ALCHEMY_HTTP_URL)
-            .unwrap_or_else(|_| "https://rpc.hyperlend.finance".to_string()),
-        archive_url: get_env(env::ARCHIVE_RPC)
-            .unwrap_or_else(|_| "https://rpc.hyperlend.finance/archive".to_string()),
-        send_url: get_env(env::SEND_RPC)
-            .unwrap_or_else(|_| "https://rpc.hyperliquid.xyz/evm".to_string()),
-        pool: get_address(env::POOL)
-            .unwrap_or_else(|_| "0x00A89d7a5A02160f20150EbEA7a2b5E4879A1A8b".parse().unwrap()),
-        balances_reader: get_address(env::BALANCES_READER)
-            .unwrap_or_else(|_| "0xE17ea42a8d61e50a26bec1829399071d2129845b".parse().unwrap()),
-        liquidator_contract: get_address(env::LIQUIDATOR)?,
-        profit_receiver: get_address(env::PROFIT_RECEIVER)?,
-        private_key: get_env(env::PRIVATE_KEY)?,
-    })
-}
-
-async fn initialize_components(config: Config) -> Result<(Scanner, Vec<tokio::task::JoinHandle<()>>)> {
+/// Initialize all components from deployment configuration.
+async fn initialize_from_deployment(deployment: ResolvedDeployment) -> Result<Scanner> {
     info!("Initializing components...");
+
+    let chain = &deployment.chain;
+    let contracts = &deployment.contracts;
 
     // Provider manager
     let provider = Arc::new(
         ProviderManager::new(
-            &config.http_url,
-            &config.archive_url,
-            &config.send_url,
-            &config.ws_url,
-            config.pool,
-            config.balances_reader,
+            &chain.rpc.http,
+            &chain.rpc.archive,
+            &chain.rpc.send,
+            &chain.rpc.ws,
+            contracts.pool,
+            contracts.balances_reader,
         )
         .await?,
     );
 
     info!(
-        pool = %config.pool,
-        balances_reader = %config.balances_reader,
+        pool = %contracts.pool,
+        balances_reader = %contracts.balances_reader,
         "Provider initialized"
     );
 
-    // Asset registry
-    let assets = Arc::new(AssetRegistry::new());
-    info!(asset_count = ASSETS.len(), "Asset registry loaded");
+    // Asset registry from deployment
+    let assets = Arc::new(AssetRegistry::from_resolved_assets(&deployment.assets));
+    info!(asset_count = deployment.assets.len(), "Asset registry loaded");
 
     // Build oracle configs for event listener
-    let oracle_configs: Vec<_> = ASSETS
+    let oracle_configs: Vec<_> = deployment
+        .assets
         .iter()
         .filter(|a| a.active)
         .map(|a| {
-            let oracle_type = match a.oracle_type {
-                hyperlend_core::OracleType::Standard => OracleType::Standard,
-                hyperlend_core::OracleType::RedStone => OracleType::RedStone,
-                hyperlend_core::OracleType::Pyth => OracleType::Pyth,
-                hyperlend_core::OracleType::DualOracle => OracleType::DualOracle,
-                hyperlend_core::OracleType::PendlePT => OracleType::PendlePT,
+            let oracle_type = match a.oracle_type.as_str() {
+                "standard" | "chainlink" => EventOracleType::Standard,
+                "redstone" => EventOracleType::RedStone,
+                "pyth" => EventOracleType::Pyth,
+                "dual" | "dual_oracle" => EventOracleType::DualOracle,
+                "pendle_pt" | "pendle" => EventOracleType::PendlePT,
+                _ => EventOracleType::Standard,
             };
             (a.oracle, a.token, oracle_type)
         })
@@ -166,8 +128,8 @@ async fn initialize_components(config: Config) -> Result<(Scanner, Vec<tokio::ta
 
     // Event listener
     let event_listener = Arc::new(EventListener::new(
-        &config.ws_url,
-        config.pool,
+        &chain.rpc.ws,
+        contracts.pool,
         oracle_configs,
     ));
     info!("Event listener configured");
@@ -179,20 +141,19 @@ async fn initialize_components(config: Config) -> Result<(Scanner, Vec<tokio::ta
     let oracle_monitor = Arc::new(OracleMonitor::new(provider.clone()));
 
     // Register oracle-asset mappings
-    for asset in ASSETS.iter().filter(|a| a.active) {
+    for asset in deployment.assets.iter().filter(|a| a.active) {
         oracle_monitor.register_oracle(asset.oracle, asset.token);
     }
 
     // DualOracle monitor (LST assets)
-    let dual_oracle_addrs: Vec<_> = assets
-        .dual_oracle_assets()
+    let dual_oracle_addrs: Vec<_> = deployment
+        .assets
+        .iter()
+        .filter(|a| a.active && (a.oracle_type == "dual" || a.oracle_type == "dual_oracle"))
         .map(|a| a.oracle)
         .collect();
-    let dual_oracle_monitor = Arc::new(DualOracleMonitor::new(dual_oracle_addrs));
-    info!(
-        lst_count = assets.dual_oracle_assets().count(),
-        "DualOracle monitor initialized"
-    );
+    let dual_oracle_monitor = Arc::new(DualOracleMonitor::new(dual_oracle_addrs.clone()));
+    info!(lst_count = dual_oracle_addrs.len(), "DualOracle monitor initialized");
 
     // Heartbeat predictor
     let heartbeat_predictor = Arc::new(HeartbeatPredictor::new());
@@ -200,39 +161,70 @@ async fn initialize_components(config: Config) -> Result<(Scanner, Vec<tokio::ta
     // Pre-stager
     let pre_stager = Arc::new(PreStager::new());
 
-    // API clients
-    let blockanalitica = Arc::new(BlockAnaliticaClient::new());
-    let liqd_client = Arc::new(LiqdClient::new());
+    // Position discovery API client
+    let blockanalitica = if let Some(url) = &deployment.protocol.position_api_url {
+        info!(url = %url, "Using position discovery API");
+        Arc::new(BlockAnaliticaClient::with_base_url(url.clone()))
+    } else {
+        info!("No position API configured - position discovery disabled");
+        Arc::new(BlockAnaliticaClient::new())
+    };
 
-    // Transaction sender (for signing and sending liquidation transactions)
-    let tx_sender = Arc::new(TransactionSender::new(
-        &config.private_key,
-        &config.send_url,
-        999, // HyperLiquid EVM chain ID
-    ).await?);
+    // Swap router registry
+    let router_registry = create_router_from_config(
+        chain.chain_id,
+        &chain.rpc.http,
+        &chain.swap_adapter,
+    );
     info!(
-        address = %tx_sender.address,
-        "Transaction sender initialized"
+        chain_id = chain.chain_id,
+        adapter = %chain.swap_adapter,
+        "Swap router initialized"
     );
 
-    // Liquidator contract (with transaction sender for execution)
-    let liquidator_contract = LiquidatorContract::with_sender(
-        config.liquidator_contract,
-        tx_sender,
+    // Gas strategy from chain config
+    let gas_strategy = create_gas_strategy(
+        &chain.gas.pricing,
+        chain.gas.default_gas_price_gwei,
+        chain.gas.max_gas_price_gwei,
+        chain.gas.priority_fee_gwei,
     );
+    info!(
+        pricing = %chain.gas.pricing,
+        default_gwei = chain.gas.default_gas_price_gwei,
+        max_gwei = chain.gas.max_gas_price_gwei,
+        "Gas strategy configured"
+    );
+
+    // Transaction sender
+    let private_key = std::env::var(PRIVATE_KEY_ENV)
+        .map_err(|_| anyhow::anyhow!("Missing env var: {}", PRIVATE_KEY_ENV))?;
+
+    let tx_sender = Arc::new(
+        TransactionSender::with_gas_strategy(
+            &private_key,
+            &chain.rpc.send,
+            chain.chain_id,
+            gas_strategy,
+        )
+        .await?,
+    );
+    info!(address = %tx_sender.address, "Transaction sender initialized");
+
+    // Liquidator contract
+    let liquidator_contract = LiquidatorContract::with_sender(contracts.liquidator, tx_sender);
 
     // Liquidator
     let liquidator = Arc::new(Liquidator::new(
         provider.clone(),
         liquidator_contract,
-        liqd_client,
-        config.profit_receiver,
+        router_registry,
+        chain.chain_id,
+        contracts.profit_receiver,
     ));
 
-    // Scanner config
-    let scanner_config = ScannerConfig::default();
-
     // Scanner
+    let scanner_config = ScannerConfig::default();
     let scanner = Scanner::new(
         tracker,
         oracle_monitor,
@@ -249,15 +241,57 @@ async fn initialize_components(config: Config) -> Result<(Scanner, Vec<tokio::ta
 
     info!("All components initialized");
 
-    Ok((scanner, Vec::new()))
+    Ok(scanner)
+}
+
+/// Create swap router from config.
+fn create_router_from_config(
+    chain_id: u64,
+    rpc_url: &str,
+    swap_adapter: &str,
+) -> Arc<SwapRouterRegistry> {
+    let mut registry = SwapRouterRegistry::new();
+
+    match swap_adapter {
+        "liqd" | "liqd.ag" => {
+            registry = registry.with_router(Arc::new(LiqdRouter::new()));
+            info!("Using LiqdRouter");
+        }
+        "uniswap_v3" | "uniswapv3" => {
+            registry = registry.with_router(Arc::new(UniswapV3Router::new(rpc_url, chain_id)));
+            info!("Using UniswapV3Router");
+        }
+        other => {
+            tracing::warn!(adapter = other, "Unknown swap adapter, defaulting to UniswapV3");
+            registry = registry.with_router(Arc::new(UniswapV3Router::new(rpc_url, chain_id)));
+        }
+    }
+
+    Arc::new(registry)
 }
 
 /// Print startup banner.
 fn print_banner() {
-    println!(r#"
-    ╦ ╦┬ ┬┌─┐┌─┐┬─┐╦  ┌─┐┌┐┌┌┬┐
-    ╠═╣└┬┘├─┘├┤ ├┬┘║  ├┤ │││ ││
-    ╩ ╩ ┴ ┴  └─┘┴└─╩═╝└─┘┘└┘─┴┘
-    Liquidation Bot v0.1.0
-    "#);
+    println!(
+        r#"
+                                        /\
+                                       /  \
+                                /\    /    \
+                               /  \  /      \      /\
+                              /    \/        \    /  \
+                         /\  /                \  /    \
+                        /  \/                  \/      \
+                    ___/                                \___
+
+  ████████╗██████╗  █████╗ ███╗   ███╗██╗   ██╗███╗   ██╗████████╗ █████╗ ███╗   ██╗ █████╗
+  ╚══██╔══╝██╔══██╗██╔══██╗████╗ ████║██║   ██║████╗  ██║╚══██╔══╝██╔══██╗████╗  ██║██╔══██╗
+     ██║   ██████╔╝███████║██╔████╔██║██║   ██║██╔██╗ ██║   ██║   ███████║██╔██╗ ██║███████║
+     ██║   ██╔══██╗██╔══██║██║╚██╔╝██║██║   ██║██║╚██╗██║   ██║   ██╔══██║██║╚██╗██║██╔══██║
+     ██║   ██║  ██║██║  ██║██║ ╚═╝ ██║╚██████╔╝██║ ╚████║   ██║   ██║  ██║██║ ╚████║██║  ██║
+     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
+
+                              M E V   S T R A T E G I E S
+                                       v0.1.0
+"#
+    );
 }

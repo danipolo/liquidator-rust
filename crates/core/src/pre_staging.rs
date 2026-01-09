@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::config;
 use crate::position::TrackedPosition;
-use hyperlend_api::SwapRoute;
+use liquidator_api::SwapRoute;
 
 /// Check if price deviation exceeds threshold using native U256 arithmetic.
 ///

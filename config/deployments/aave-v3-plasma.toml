@@ -1,0 +1,62 @@
+# AAVE V3 Plasma Deployment Configuration
+# This ties together chain, protocol, and asset configs for Plasma
+
+[deployment]
+name = "aave-v3-plasma"
+chain = "plasma"
+protocol = "aave-v3-plasma"
+assets = "aave-v3-plasma"
+
+# Contract addresses for this deployment
+[deployment.contracts]
+# Your deployed liquidator contract on Plasma
+# liquidator = "${PLASMA_LIQUIDATOR}"
+# profit_receiver = "${PLASMA_PROFIT_RECEIVER}"
+
+# Bot configuration for Plasma
+# Plasma has ~1s blocks - very fast
+[bot]
+profile = "production"
+
+[bot.position]
+dust_threshold_usd = 5.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.20
+seed_limit = 500
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+# Tight trigger distances for 1s block times
+critical_trigger_distance_pct = 0.3
+hot_trigger_distance_pct = 1.5
+warm_trigger_distance_pct = 4.0
+
+[bot.scanner]
+# Aggressive timing for 1s blocks
+bootstrap_interval_secs = 60
+critical_interval_ms = 200
+hot_interval_ms = 1000
+warm_interval_ms = 5000
+cold_interval_ms = 20000
+dual_oracle_interval_ms = 3000
+heartbeat_interval_ms = 2000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.04
+price_deviation_bps = 50
+ttl_secs = 20
+
+[bot.liquidation]
+close_factor = 0.5
+min_profit_usd = 2.0
+max_slippage_pct = 1.0
+gas_multiplier = 1.2
+
+[bot.gas]
+# EIP-1559 gas settings for Plasma
+max_gas_price_gwei = 50.0
+priority_fee_gwei = 0.1
+base_fee_buffer = 1.5

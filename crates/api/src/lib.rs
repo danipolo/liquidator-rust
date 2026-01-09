@@ -1,11 +1,27 @@
-//! HyperLend API clients for external services.
+//! Liquidator API clients for external services.
 //!
 //! This crate provides HTTP clients for:
 //! - BlockAnalitica: At-risk wallet discovery and position data
-//! - Liqd.ag: Swap routing for liquidation execution
+//! - Swap routing: Abstracted swap routing for liquidation execution
+//!
+//! # Swap Routing
+//!
+//! The [`swap`] module provides a trait-based abstraction for DEX aggregators:
+//! - [`swap::LiqdRouter`]: Liqd.ag integration with caching (HyperLiquid)
+//! - [`swap::UniswapV3Router`]: Uniswap V3 for Plasma, Arbitrum, Base, Optimism, Celo
+//! - `SwapRouter` trait for implementing additional routers
 
 mod blockanalitica;
-mod liqd;
+pub mod swap;
 
-pub use blockanalitica::{AtRiskWallet, BlockAnaliticaClient, PositionDistribution, ProfitabilityFilter, WalletAsset, WalletStats};
-pub use liqd::{LiqdClient, SwapAllocation, SwapHop, SwapRoute};
+// BlockAnalitica API
+pub use blockanalitica::{
+    AtRiskWallet, BlockAnaliticaClient, PositionDistribution, ProfitabilityFilter, WalletAsset,
+    WalletStats,
+};
+
+// Swap routing (canonical types)
+pub use swap::{
+    FeeTier, LiqdRouter, SwapAllocation, SwapHop, SwapParams, SwapRoute, SwapRouter,
+    SwapRouterRegistry, UniswapV3Addresses, UniswapV3Router,
+};

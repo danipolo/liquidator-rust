@@ -1,8 +1,15 @@
 [package]
-name = "hyperlend-chain"
+name = "liquidator-chain"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+[features]
+default = ["aave-v3"]
+# Protocol support flags
+aave-v3 = []      # AAVE V3 and forks (HyperLend, etc.)
+aave-v4 = []      # AAVE V4 (future)
+compound-v3 = []  # Compound V3 (Comet)
 
 [dependencies]
 # Ethereum
@@ -23,6 +30,7 @@ parking_lot.workspace = true
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
+toml.workspace = true
 
 # Utilities
 thiserror.workspace = true
@@ -30,3 +38,4 @@ anyhow.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 hex.workspace = true
+async-trait.workspace = true

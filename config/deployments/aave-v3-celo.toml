@@ -1,0 +1,62 @@
+# AAVE V3 Celo Deployment Configuration
+# This ties together chain, protocol, and asset configs for Celo
+
+[deployment]
+name = "aave-v3-celo"
+chain = "celo"
+protocol = "aave-v3-celo"
+assets = "aave-v3-celo"
+
+# Contract addresses for this deployment
+[deployment.contracts]
+# Your deployed liquidator contract on Celo
+# liquidator = "${CELO_LIQUIDATOR}"
+# profit_receiver = "${CELO_PROFIT_RECEIVER}"
+
+# Bot configuration for Celo
+# Celo has ~5s blocks
+[bot]
+profile = "production"
+
+[bot.position]
+dust_threshold_usd = 5.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.20
+seed_limit = 500
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+# More relaxed trigger distances for 5s block times
+critical_trigger_distance_pct = 0.5
+hot_trigger_distance_pct = 2.0
+warm_trigger_distance_pct = 5.0
+
+[bot.scanner]
+# Timing tuned for 5s blocks
+bootstrap_interval_secs = 60
+critical_interval_ms = 500
+hot_interval_ms = 2000
+warm_interval_ms = 10000
+cold_interval_ms = 30000
+dual_oracle_interval_ms = 5000
+heartbeat_interval_ms = 5000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.04
+price_deviation_bps = 50
+ttl_secs = 30
+
+[bot.liquidation]
+close_factor = 0.5
+min_profit_usd = 2.0
+max_slippage_pct = 1.0
+gas_multiplier = 1.2
+
+[bot.gas]
+# EIP-1559 gas settings for Celo
+max_gas_price_gwei = 50.0
+priority_fee_gwei = 0.1
+base_fee_buffer = 1.5

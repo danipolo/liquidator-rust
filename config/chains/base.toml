@@ -1,0 +1,32 @@
+# Base (Coinbase L2) Chain Configuration
+
+[chain]
+chain_id = 8453
+name = "Base"
+native_token = "ETH"
+block_time_ms = 2000
+explorer_url = "https://basescan.org"
+
+[chain.rpc]
+# Environment variables can be referenced with ${VAR_NAME}
+http = "${BASE_HTTP_RPC}"
+ws = "${BASE_WS_RPC}"
+archive = "${BASE_ARCHIVE_RPC}"
+send = "${BASE_SEND_RPC}"
+
+[chain.gas]
+# Base uses Optimism-style EIP-1559
+pricing = "Eip1559"
+limit_multiplier = 1.2
+max_gas_price_gwei = 10.0
+priority_fee_gwei = 0.05
+base_fee_buffer = 1.5
+
+[chain.swap]
+# Base uses Uniswap V3
+default_adapter = "uniswap_v3"
+
+[chain.swap.uniswap_v3]
+swap_router = "0x2626664c2603336E57B271c5C0b26F421741e481"
+quoter_v2 = "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a"
+factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"

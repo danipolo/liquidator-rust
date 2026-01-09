@@ -29,11 +29,10 @@ pub struct ProfitabilityFilter {
 
 impl Default for ProfitabilityFilter {
     fn default() -> Self {
-        // DUST TEST: Allow any position to test execution
-        // Restore to production after testing:
-        // min_profit_usd: 0.25 -> $14 min collateral
+        // Production settings:
+        // min_profit_usd: 0.25 -> $14 min collateral with 5% bonus
         Self {
-            min_profit_usd: -1.0,  // DUST TEST: Accept losses to test execution
+            min_profit_usd: 0.25,
             gas_cost_usd: 0.03,
             slippage: 0.01,
             close_factor: 0.5,
@@ -75,8 +74,8 @@ impl ProfitabilityFilter {
         let min_collateral = self.min_collateral_usd();
 
         // Check both supply and borrow are above minimum
-        // DUST TEST: Accept any position with non-zero debt
-        total_supply_usd >= min_collateral && total_borrow_usd >= 0.0001
+        // Debt must be at least $1 to avoid dust positions
+        total_supply_usd >= min_collateral && total_borrow_usd >= 1.0
     }
 
     /// Get the reason why a position is filtered out.
@@ -88,8 +87,8 @@ impl ProfitabilityFilter {
                 "collateral ${:.2} < minimum ${:.2}",
                 total_supply_usd, min_collateral
             ))
-        } else if total_borrow_usd < 0.0001 {
-            Some(format!("debt ${:.6} < minimum $0.0001", total_borrow_usd))
+        } else if total_borrow_usd < 1.0 {
+            Some(format!("debt ${:.2} < minimum $1.00", total_borrow_usd))
         } else {
             None
         }

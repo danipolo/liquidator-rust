@@ -1,0 +1,26 @@
+# AAVE V3 on Plasma Mainnet
+
+[protocol]
+id = "aave-v3-plasma"
+name = "AAVE V3 Plasma"
+version = "aave-v3"
+chain_id = 9745
+
+[protocol.contracts]
+# AAVE V3 Plasma Pool
+pool = "0x925a2A7214Ed92428B5b1B090F80b25700095e12"
+# Pool Data Provider
+pool_data_provider = "0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F"
+# AAVE Oracle
+oracle = "0x33E0b3fc976DC9C516926BA48CfC0A9E10a2aAA5"
+# Pool Addresses Provider
+pool_addresses_provider = "0x061D8e131F26512348ee5FA42e2DF1bA9d6505E9"
+
+[protocol.parameters]
+close_factor = 0.5
+default_liquidation_bonus_bps = 500
+liquidation_threshold = 1.0
+
+[protocol.api]
+position_api = ""
+swap_api = ""

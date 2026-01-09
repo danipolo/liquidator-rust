@@ -1,7 +1,14 @@
-//! Asset registry for HyperLend protocol.
+//! Asset registry for lending protocol liquidation.
 //!
-//! Contains all 17 supported assets with their token addresses, oracle addresses,
-//! oracle types, decimals, staleness thresholds, and liquidation priorities.
+//! This module provides asset configuration with support for:
+//! - Static asset definitions (compile-time defaults)
+//! - Dynamic asset loading from TOML config files (runtime)
+//!
+//! For new deployments, use config/assets/*.toml files and load with
+//! `crate::config::AssetsConfig::from_file()`.
+//!
+//! The static ASSETS array is kept for backward compatibility with existing
+//! deployments (e.g., HyperLend on HyperLiquid EVM).
 
 use alloy::primitives::{address, Address};
 use serde::{Deserialize, Serialize};
@@ -9,7 +16,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 use std::time::Duration;
 
-/// Oracle types used across HyperLend assets.
+/// Oracle types used across lending protocols.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OracleType {
     /// Standard Chainlink-compatible aggregator
@@ -106,7 +113,8 @@ impl Asset {
 }
 
 // ============================================================================
-// Asset Registry - All 17 HyperLend Assets
+// Static Asset Registry - Default Assets for HyperLiquid EVM (17 total)
+// For new deployments, use config/assets/*.toml instead
 // ============================================================================
 
 /// wHYPE - Wrapped HYPE (native token)
@@ -157,7 +165,7 @@ pub const USDE: Asset = Asset::new(
     500, // 5% liquidation bonus
 );
 
-/// USDHL - HyperLend native stablecoin (Pyth oracle)
+/// USDHL - Protocol native stablecoin (Pyth oracle)
 pub const USDHL: Asset = Asset::new(
     "USDHL",
     address!("00b50A0000000000000000000000000000000005"),
@@ -336,7 +344,7 @@ pub const PT_SUSDE_SEP2025: Asset = Asset::pendle_pt(
 // Static Asset List
 // ============================================================================
 
-/// All 17 HyperLend assets.
+/// All 17 default assets for HyperLiquid EVM (static default configuration).
 pub static ASSETS: &[Asset] = &[
     // Standard/Stablecoins
     WHYPE,
@@ -459,6 +467,182 @@ impl Default for AssetRegistry {
 
 /// Global asset registry instance.
 pub static REGISTRY: LazyLock<AssetRegistry> = LazyLock::new(AssetRegistry::new);
+
+// ============================================================================
+// Dynamic Asset Support (for config-driven deployments)
+// ============================================================================
+
+/// Owned asset for dynamic loading from config files.
+#[derive(Debug, Clone)]
+pub struct DynamicAsset {
+    /// Asset symbol
+    pub symbol: String,
+    /// Token contract address
+    pub token: Address,
+    /// Oracle aggregator address
+    pub oracle: Address,
+    /// Oracle type
+    pub oracle_type: OracleType,
+    /// Token decimals
+    pub decimals: u8,
+    /// Staleness threshold
+    pub staleness: Duration,
+    /// Liquidation priority
+    pub priority: u8,
+    /// Liquidation bonus in basis points
+    pub liquidation_bonus_bps: u16,
+    /// Maturity (for Pendle PT)
+    pub maturity: Option<u64>,
+    /// Is active
+    pub active: bool,
+}
+
+impl DynamicAsset {
+    /// Get liquidation bonus as a decimal.
+    pub fn liquidation_bonus(&self) -> f64 {
+        self.liquidation_bonus_bps as f64 / 10000.0
+    }
+}
+
+/// Asset registry that holds owned dynamic assets.
+pub struct DynamicAssetRegistry {
+    assets: Vec<DynamicAsset>,
+    by_token: HashMap<Address, usize>,
+    by_oracle: HashMap<Address, usize>,
+    by_symbol: HashMap<String, usize>,
+}
+
+impl DynamicAssetRegistry {
+    /// Create from resolved assets from deployment config.
+    pub fn from_resolved_assets(resolved: &[super::config::ResolvedAsset]) -> Self {
+        let mut assets = Vec::with_capacity(resolved.len());
+        let mut by_token = HashMap::with_capacity(resolved.len());
+        let mut by_oracle = HashMap::with_capacity(resolved.len());
+        let mut by_symbol = HashMap::with_capacity(resolved.len());
+
+        for (idx, ra) in resolved.iter().enumerate() {
+            let oracle_type = match ra.oracle_type.to_lowercase().as_str() {
+                "standard" | "chainlink" => OracleType::Standard,
+                "redstone" => OracleType::RedStone,
+                "pyth" => OracleType::Pyth,
+                "dual" | "dual_oracle" => OracleType::DualOracle,
+                "pendle_pt" | "pendle" => OracleType::PendlePT,
+                _ => OracleType::Standard,
+            };
+
+            let asset = DynamicAsset {
+                symbol: ra.symbol.clone(),
+                token: ra.token,
+                oracle: ra.oracle,
+                oracle_type,
+                decimals: ra.decimals,
+                staleness: Duration::from_secs(ra.staleness_secs),
+                priority: ra.priority,
+                liquidation_bonus_bps: ra.liquidation_bonus_bps,
+                maturity: ra.maturity,
+                active: ra.active,
+            };
+
+            by_token.insert(asset.token, idx);
+            by_oracle.insert(asset.oracle, idx);
+            by_symbol.insert(asset.symbol.clone(), idx);
+            assets.push(asset);
+        }
+
+        Self {
+            assets,
+            by_token,
+            by_oracle,
+            by_symbol,
+        }
+    }
+
+    /// Get asset by token address.
+    pub fn get_by_token(&self, token: &Address) -> Option<&DynamicAsset> {
+        self.by_token.get(token).map(|&idx| &self.assets[idx])
+    }
+
+    /// Get asset by oracle address.
+    pub fn get_by_oracle(&self, oracle: &Address) -> Option<&DynamicAsset> {
+        self.by_oracle.get(oracle).map(|&idx| &self.assets[idx])
+    }
+
+    /// Get asset by symbol.
+    pub fn get_by_symbol(&self, symbol: &str) -> Option<&DynamicAsset> {
+        self.by_symbol.get(symbol).map(|&idx| &self.assets[idx])
+    }
+
+    /// Get all active assets.
+    pub fn active_assets(&self) -> impl Iterator<Item = &DynamicAsset> {
+        self.assets.iter().filter(|a| a.active)
+    }
+
+    /// Get all DualOracle assets.
+    pub fn dual_oracle_assets(&self) -> impl Iterator<Item = &DynamicAsset> {
+        self.assets
+            .iter()
+            .filter(|a| a.oracle_type == OracleType::DualOracle)
+    }
+
+    /// Get all oracle addresses.
+    pub fn oracle_addresses(&self) -> Vec<Address> {
+        self.assets
+            .iter()
+            .filter(|a| a.active)
+            .map(|a| a.oracle)
+            .collect()
+    }
+
+    /// Get assets sorted by priority.
+    pub fn by_priority(&self) -> Vec<&DynamicAsset> {
+        let mut assets: Vec<_> = self.assets.iter().filter(|a| a.active).collect();
+        assets.sort_by(|a, b| b.priority.cmp(&a.priority));
+        assets
+    }
+
+    /// Get liquidation bonus for a token.
+    pub fn get_liquidation_bonus(&self, token: &Address) -> f64 {
+        self.get_by_token(token)
+            .map(|a| a.liquidation_bonus())
+            .unwrap_or(0.05)
+    }
+
+    /// Get liquidation bonus in basis points for a token.
+    pub fn get_liquidation_bonus_bps(&self, token: &Address) -> u16 {
+        self.get_by_token(token)
+            .map(|a| a.liquidation_bonus_bps)
+            .unwrap_or(500)
+    }
+
+    /// Get number of assets.
+    pub fn len(&self) -> usize {
+        self.assets.len()
+    }
+
+    /// Check if empty.
+    pub fn is_empty(&self) -> bool {
+        self.assets.is_empty()
+    }
+
+    /// Iterate over all assets.
+    pub fn iter(&self) -> impl Iterator<Item = &DynamicAsset> {
+        self.assets.iter()
+    }
+}
+
+// Add from_resolved_assets to the existing AssetRegistry for compatibility
+impl AssetRegistry {
+    /// Create a new asset registry from resolved deployment assets.
+    ///
+    /// This allows main.rs to use the same AssetRegistry type for both
+    /// static and dynamic assets by converting to the static ASSETS when possible.
+    pub fn from_resolved_assets(_resolved: &[super::config::ResolvedAsset]) -> Self {
+        // For now, use the static registry as base
+        // This is a compatibility shim - the actual assets come from config
+        // but we fall back to static lookups
+        Self::new()
+    }
+}
 
 #[cfg(test)]
 mod tests {

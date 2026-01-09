@@ -1,0 +1,27 @@
+# AAVE V3 on Celo
+
+[protocol]
+id = "aave-v3-celo"
+name = "AAVE V3 Celo"
+version = "aave-v3"
+chain_id = 42220
+
+[protocol.contracts]
+# AAVE V3 Celo Pool
+pool = "0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402"
+# Pool Data Provider
+pool_data_provider = "0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED"
+# AAVE Oracle
+oracle = "0x1e693D088ceFD1E95ba4c4a5F7EeA41a1Ec37e8b"
+# Pool Addresses Provider
+pool_addresses_provider = "0x9F7Cf9417D5251C59fE94fB9147feEe1aAd9Cea5"
+
+[protocol.parameters]
+close_factor = 0.5
+default_liquidation_bonus_bps = 500
+liquidation_threshold = 1.0
+
+[protocol.api]
+position_api = ""
+# 1inch for swap routing (if supported on Celo)
+swap_api = "https://api.1inch.dev"

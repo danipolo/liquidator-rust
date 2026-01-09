@@ -1,0 +1,25 @@
+# AAVE V3 on Arbitrum One
+
+[protocol]
+id = "aave-v3-arbitrum"
+name = "AAVE V3 Arbitrum"
+version = "aave-v3"
+chain_id = 42161
+
+[protocol.contracts]
+# AAVE V3 Arbitrum Pool
+pool = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
+# Pool Data Provider
+pool_data_provider = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
+# AAVE Oracle
+oracle = "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7"
+
+[protocol.parameters]
+close_factor = 0.5
+default_liquidation_bonus_bps = 500
+liquidation_threshold = 1.0
+
+[protocol.api]
+position_api = ""
+# 1inch for swap routing
+swap_api = "https://api.1inch.dev"

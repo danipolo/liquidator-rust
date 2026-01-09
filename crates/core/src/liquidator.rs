@@ -10,59 +10,59 @@ use crate::assets::REGISTRY;
 use crate::position::TrackedPosition;
 use crate::pre_staging::StagedLiquidation;
 use crate::u256_math;
-use hyperlend_api::{LiqdClient, SwapRoute};
-use hyperlend_chain::{LiquidatorContract, ProviderManager, SwapAllocation};
-
-/// Estimated gas cost in USD for a liquidation tx on HyperLiquid EVM.
-/// Based on real liquidation data:
-/// - Complex liquidation with multi-hop swaps: ~1.57M gas @ 0.7 gwei = ~$0.03
-/// - Simple liquidations may use less, but we budget for complex ones
-const ESTIMATED_GAS_COST_USD: f64 = 0.03;
-
-/// Close factor for partial liquidations (50%).
-const CLOSE_FACTOR: f64 = 0.5;
+use liquidator_api::{SwapParams, SwapRoute, SwapRouterRegistry};
+use liquidator_chain::{LiquidatorContract, ProviderManager, SwapAdapter, SwapAllocation};
 
 /// Maximum amount for unlimited debt seizure (2^256 - 1).
 const MAX_AMOUNT: &str =
     "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
-/// Liquidation executor.
-pub struct Liquidator {
-    /// Provider manager for chain interaction
-    provider: Arc<ProviderManager>,
+/// Default estimated gas cost in USD (HyperLiquid EVM).
+const DEFAULT_ESTIMATED_GAS_COST_USD: f64 = 0.03;
 
-    /// Liquidator contract wrapper
-    contract: LiquidatorContract,
+/// Default close factor for partial liquidations (50%).
+const DEFAULT_CLOSE_FACTOR: f64 = 0.5;
 
-    /// Liqd.ag swap routing client
-    liqd_client: Arc<LiqdClient>,
-
-    /// Profit receiver address
-    profit_receiver: Address,
-
-    /// Minimum profit threshold (USD)
-    min_profit_usd: f64,
-
-    /// Slippage tolerance (basis points)
-    slippage_bps: u16,
+/// Liquidation parameters that can be configured per protocol.
+#[derive(Debug, Clone)]
+pub struct LiquidationParams {
+    /// Close factor for partial liquidations (0.0-1.0)
+    pub close_factor: f64,
+    /// Estimated gas cost in USD
+    pub gas_cost_usd: f64,
+    /// Minimum profit threshold in USD
+    pub min_profit_usd: f64,
+    /// Slippage tolerance in basis points
+    pub slippage_bps: u16,
 }
 
-impl Liquidator {
-    /// Create a new liquidator.
-    pub fn new(
-        provider: Arc<ProviderManager>,
-        contract: LiquidatorContract,
-        liqd_client: Arc<LiqdClient>,
-        profit_receiver: Address,
-    ) -> Self {
+impl Default for LiquidationParams {
+    fn default() -> Self {
         Self {
-            provider,
-            contract,
-            liqd_client,
-            profit_receiver,
+            close_factor: DEFAULT_CLOSE_FACTOR,
+            gas_cost_usd: DEFAULT_ESTIMATED_GAS_COST_USD,
             min_profit_usd: 1.0,
-            slippage_bps: 100, // 1% default slippage
+            slippage_bps: 100, // 1%
         }
+    }
+}
+
+impl LiquidationParams {
+    /// Create new params with defaults.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set close factor.
+    pub fn with_close_factor(mut self, close_factor: f64) -> Self {
+        self.close_factor = close_factor;
+        self
+    }
+
+    /// Set gas cost estimate.
+    pub fn with_gas_cost(mut self, gas_cost_usd: f64) -> Self {
+        self.gas_cost_usd = gas_cost_usd;
+        self
     }
 
     /// Set minimum profit threshold.
@@ -76,10 +76,104 @@ impl Liquidator {
         self.slippage_bps = slippage_bps;
         self
     }
+}
 
-    /// Get reference to the Liqd client.
-    pub fn liqd_client(&self) -> &LiqdClient {
-        &self.liqd_client
+/// Liquidation executor.
+pub struct Liquidator {
+    /// Provider manager for chain interaction
+    provider: Arc<ProviderManager>,
+
+    /// Liquidator contract wrapper
+    contract: LiquidatorContract,
+
+    /// Swap router registry for chain-aware routing
+    router_registry: Arc<SwapRouterRegistry>,
+
+    /// Chain ID for this liquidator
+    chain_id: u64,
+
+    /// Profit receiver address
+    profit_receiver: Address,
+
+    /// Liquidation parameters (configurable per protocol)
+    params: LiquidationParams,
+}
+
+impl Liquidator {
+    /// Create a new liquidator with default parameters.
+    pub fn new(
+        provider: Arc<ProviderManager>,
+        contract: LiquidatorContract,
+        router_registry: Arc<SwapRouterRegistry>,
+        chain_id: u64,
+        profit_receiver: Address,
+    ) -> Self {
+        Self {
+            provider,
+            contract,
+            router_registry,
+            chain_id,
+            profit_receiver,
+            params: LiquidationParams::default(),
+        }
+    }
+
+    /// Create a new liquidator with custom parameters.
+    pub fn with_params(
+        provider: Arc<ProviderManager>,
+        contract: LiquidatorContract,
+        router_registry: Arc<SwapRouterRegistry>,
+        chain_id: u64,
+        profit_receiver: Address,
+        params: LiquidationParams,
+    ) -> Self {
+        Self {
+            provider,
+            contract,
+            router_registry,
+            chain_id,
+            profit_receiver,
+            params,
+        }
+    }
+
+    /// Set minimum profit threshold.
+    pub fn with_min_profit(mut self, min_profit_usd: f64) -> Self {
+        self.params.min_profit_usd = min_profit_usd;
+        self
+    }
+
+    /// Set slippage tolerance.
+    pub fn with_slippage(mut self, slippage_bps: u16) -> Self {
+        self.params.slippage_bps = slippage_bps;
+        self
+    }
+
+    /// Set close factor.
+    pub fn with_close_factor(mut self, close_factor: f64) -> Self {
+        self.params.close_factor = close_factor;
+        self
+    }
+
+    /// Set gas cost estimate.
+    pub fn with_gas_cost(mut self, gas_cost_usd: f64) -> Self {
+        self.params.gas_cost_usd = gas_cost_usd;
+        self
+    }
+
+    /// Get reference to the swap router registry.
+    pub fn router_registry(&self) -> &SwapRouterRegistry {
+        &self.router_registry
+    }
+
+    /// Get the chain ID.
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+
+    /// Get current parameters.
+    pub fn params(&self) -> &LiquidationParams {
+        &self.params
     }
 
     /// Execute a pre-staged liquidation.
@@ -106,17 +200,17 @@ impl Liquidator {
         );
 
         // Check profitability
-        if !profit_estimate.is_profitable(self.min_profit_usd) {
+        if !profit_estimate.is_profitable(self.params.min_profit_usd) {
             warn!(
                 user = %staged.user,
                 expected_profit = profit_estimate.net_profit,
-                min_required = self.min_profit_usd,
+                min_required = self.params.min_profit_usd,
                 "Skipping unprofitable liquidation"
             );
             anyhow::bail!(
                 "Liquidation not profitable: expected ${:.2}, minimum ${:.2}",
                 profit_estimate.net_profit,
-                self.min_profit_usd
+                self.params.min_profit_usd
             );
         }
 
@@ -129,21 +223,27 @@ impl Liquidator {
         // TIMING: Liquidation execution
         let liquidate_start = Instant::now();
         let (tx_hash, encoding_time_us) = if staged.is_ready_for_instant_execution() {
+            // SAFETY: is_ready_for_instant_execution() guarantees encoded_calldata is Some
             info!(user = %staged.user, "Using pre-encoded calldata (fast path)");
-            let hash = self.contract
-                .execute_preencoded(staged.encoded_calldata.as_ref().unwrap().clone())
-                .await?;
+            let calldata = staged
+                .encoded_calldata
+                .as_ref()
+                .expect("is_ready_for_instant_execution guarantees encoded_calldata is Some")
+                .clone();
+            let hash = self.contract.execute_preencoded(calldata).await?;
             (hash, 0u128) // No encoding time for pre-encoded path
         } else {
             // Fallback: Prepare swap hops and encode at execution time
             let encode_start = Instant::now();
             let (hops, tokens) = self.prepare_hops(&staged.swap_route)?;
             let min_amount_out = self.apply_slippage(staged.debt_to_cover);
+            let adapter = SwapAdapter::for_chain(self.chain_id);
             let encode_elapsed = encode_start.elapsed();
 
             info!(
                 user = %staged.user,
                 encode_us = encode_elapsed.as_micros(),
+                adapter = ?adapter,
                 "Using runtime encoding (slow path)"
             );
 
@@ -153,9 +253,10 @@ impl Liquidator {
                     staged.collateral_asset,
                     staged.debt_asset,
                     staged.debt_to_cover,
+                    min_amount_out,
+                    adapter,
                     hops,
                     tokens,
-                    min_amount_out,
                 )
                 .await?;
             (hash, encode_elapsed.as_micros())
@@ -231,17 +332,17 @@ impl Liquidator {
             );
 
             // Skip if clearly unprofitable (give 50% margin for swap route accuracy)
-            if early_estimate.net_profit < self.min_profit_usd * 0.5 {
+            if early_estimate.net_profit < self.params.min_profit_usd * 0.5 {
                 warn!(
                     user = %position.user,
                     expected_profit = early_estimate.net_profit,
-                    min_required = self.min_profit_usd,
+                    min_required = self.params.min_profit_usd,
                     "Skipping likely unprofitable liquidation (early check)"
                 );
                 anyhow::bail!(
                     "Liquidation likely not profitable: estimated ${:.2}, minimum ${:.2}",
                     early_estimate.net_profit,
-                    self.min_profit_usd
+                    self.params.min_profit_usd
                 );
             }
         }
@@ -260,10 +361,18 @@ impl Liquidator {
         let collateral_amount = self.calculate_collateral_amount(collateral.amount);
         let debt_amount = debt.amount;
 
-        // Fetch swap route (with fallback to direct route if API fails)
+        // Fetch swap route using chain-aware router registry
+        let swap_params = SwapParams::new(
+            *collateral_asset,
+            *debt_asset,
+            collateral_amount,
+            collateral.decimals,
+        )
+        .with_slippage_bps(self.params.slippage_bps);
+
         let swap_route = match self
-            .liqd_client
-            .get_swap_route(*collateral_asset, *debt_asset, collateral_amount, collateral.decimals, true)
+            .router_registry
+            .get_route_with_fallback(self.chain_id, swap_params)
             .await
         {
             Ok(route) => route,
@@ -271,18 +380,15 @@ impl Liquidator {
                 warn!(
                     user = %position.user,
                     error = %e,
-                    "Swap API failed, using direct route fallback"
+                    "Swap router failed, using direct route fallback"
                 );
-                hyperlend_api::LiqdClient::create_direct_route(
-                    *collateral_asset,
-                    *debt_asset,
-                    collateral_amount,
-                )
+                // Create direct route fallback
+                self.create_direct_route(*collateral_asset, *debt_asset, collateral_amount)
             }
         };
 
         // Calculate actual profit estimate with real swap route
-        let collateral_value_usd = collateral.value_usd * CLOSE_FACTOR;
+        let collateral_value_usd = collateral.value_usd * self.params.close_factor;
         let swap_output_usd = match swap_route.expected_output_usd {
             Some(usd) => usd,
             None => {
@@ -307,17 +413,17 @@ impl Liquidator {
         );
 
         // Check profitability with actual swap route
-        if !profit_estimate.is_profitable(self.min_profit_usd) {
+        if !profit_estimate.is_profitable(self.params.min_profit_usd) {
             warn!(
                 user = %position.user,
                 expected_profit = profit_estimate.net_profit,
-                min_required = self.min_profit_usd,
+                min_required = self.params.min_profit_usd,
                 "Skipping unprofitable liquidation"
             );
             anyhow::bail!(
                 "Liquidation not profitable: expected ${:.2}, minimum ${:.2}",
                 profit_estimate.net_profit,
-                self.min_profit_usd
+                self.params.min_profit_usd
             );
         }
 
@@ -336,6 +442,9 @@ impl Liquidator {
         // Calculate min amount out
         let min_amount_out = self.apply_slippage(debt_to_cover);
 
+        // Get adapter for this chain
+        let adapter = SwapAdapter::for_chain(self.chain_id);
+
         // Execute liquidation
         let tx_hash = self
             .contract
@@ -344,9 +453,10 @@ impl Liquidator {
                 *collateral_asset,
                 *debt_asset,
                 debt_to_cover,
+                min_amount_out,
+                adapter,
                 hops,
                 tokens,
-                min_amount_out,
             )
             .await?;
 
@@ -387,6 +497,76 @@ impl Liquidator {
         }
     }
 
+    /// Encode liquidation calldata for pre-staging.
+    ///
+    /// This allows the scanner to pre-encode calldata during staging,
+    /// eliminating encoding overhead at execution time (~5ms savings).
+    /// Uses the appropriate SwapAdapter based on chain_id.
+    pub fn encode_liquidation_calldata(
+        &self,
+        user: Address,
+        collateral_asset: Address,
+        debt_asset: Address,
+        debt_to_cover: U256,
+        swap_route: &SwapRoute,
+        min_amount_out: U256,
+    ) -> Result<alloy::primitives::Bytes> {
+        let (hops, tokens) = self.prepare_hops(swap_route)?;
+        let adapter = SwapAdapter::for_chain(self.chain_id);
+
+        debug!(
+            chain_id = self.chain_id,
+            adapter = ?adapter,
+            "Encoding liquidation calldata with adapter"
+        );
+
+        Ok(self.contract.encode_liquidate_with_adapter(
+            user,
+            collateral_asset,
+            debt_asset,
+            debt_to_cover,
+            min_amount_out,
+            adapter,
+            hops,
+            tokens,
+        ))
+    }
+
+    /// Create a direct swap route fallback when router fails.
+    fn create_direct_route(
+        &self,
+        token_in: Address,
+        token_out: Address,
+        amount_in: U256,
+    ) -> SwapRoute {
+        use liquidator_api::swap::{SwapAllocation as ApiAllocation, SwapHop};
+
+        let allocation = ApiAllocation {
+            token_in,
+            token_out,
+            router_index: 0,
+            fee: 3000, // 0.3% default
+            amount_in,
+            stable: false,
+        };
+
+        SwapRoute {
+            token_in,
+            token_out,
+            amount_in,
+            expected_output: amount_in, // Assume 1:1 for fallback
+            min_output: amount_in * U256::from(995) / U256::from(1000), // 0.5% slippage
+            hops: vec![SwapHop {
+                allocations: vec![allocation],
+            }],
+            tokens: vec![token_in, token_out],
+            price_impact: None,
+            expected_input_usd: None,
+            expected_output_usd: None,
+            encoded_calldata: None,
+        }
+    }
+
     /// Prepare swap hops for contract call.
     fn prepare_hops(&self, swap_route: &SwapRoute) -> Result<(Vec<Vec<SwapAllocation>>, Vec<Address>)> {
         let mut hops: Vec<Vec<SwapAllocation>> = Vec::new();
@@ -424,12 +604,12 @@ impl Liquidator {
     /// Uses native U256 arithmetic (2-5x faster than String parsing).
     #[inline]
     fn apply_slippage(&self, amount: U256) -> U256 {
-        u256_math::apply_basis_points(amount, self.slippage_bps)
+        u256_math::apply_basis_points(amount, self.params.slippage_bps)
     }
 
     /// Check if liquidation would be profitable.
     pub fn is_profitable(&self, expected_profit_usd: f64) -> bool {
-        expected_profit_usd >= self.min_profit_usd
+        expected_profit_usd >= self.params.min_profit_usd
     }
 
     /// Estimate expected profit from a liquidation.
@@ -457,11 +637,11 @@ impl Liquidator {
         let slippage_cost = (swap_input_usd - swap_output_usd).max(0.0);
 
         // Net profit after costs
-        let net_profit = gross_profit - ESTIMATED_GAS_COST_USD - slippage_cost;
+        let net_profit = gross_profit - self.params.gas_cost_usd - slippage_cost;
 
         ProfitEstimate {
             gross_profit,
-            gas_cost: ESTIMATED_GAS_COST_USD,
+            gas_cost: self.params.gas_cost_usd,
             slippage_cost,
             net_profit,
             liquidation_bonus_pct: liquidation_bonus * 100.0,
@@ -473,7 +653,7 @@ impl Liquidator {
         let (collateral_asset, collateral) = position.largest_collateral()?;
 
         // Apply close factor to get actual collateral to liquidate
-        let collateral_value = collateral.value_usd * CLOSE_FACTOR;
+        let collateral_value = collateral.value_usd * self.params.close_factor;
 
         // Estimate swap output (assume 1% slippage for estimation)
         let estimated_swap_output = collateral_value * 0.99;
@@ -508,7 +688,7 @@ impl Liquidator {
 
     /// Get the minimum profit threshold.
     pub fn min_profit_usd(&self) -> f64 {
-        self.min_profit_usd
+        self.params.min_profit_usd
     }
 
     /// Execute a liquidation with retry logic.
@@ -613,7 +793,7 @@ impl Liquidator {
     }
 }
 
-// Note: SwapAllocation is imported from hyperlend_chain above
+// Note: SwapAllocation is imported from liquidator_chain above
 
 /// Profit estimate breakdown for a liquidation.
 #[derive(Debug, Clone)]

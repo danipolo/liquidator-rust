@@ -1,0 +1,33 @@
+# Optimism Chain Configuration
+
+[chain]
+chain_id = 10
+name = "Optimism"
+native_token = "ETH"
+block_time_ms = 2000
+explorer_url = "https://optimistic.etherscan.io"
+
+[chain.rpc]
+# Environment variables can be referenced with ${VAR_NAME}
+http = "${OP_HTTP_RPC}"
+ws = "${OP_WS_RPC}"
+archive = "${OP_ARCHIVE_RPC}"
+send = "${OP_SEND_RPC}"
+
+[chain.gas]
+# Optimism uses EIP-1559 gas pricing
+pricing = "Eip1559"
+limit_multiplier = 1.3
+max_gas_price_gwei = 50.0
+priority_fee_gwei = 0.001
+# L1 data costs are included automatically by the sequencer
+base_fee_buffer = 1.5
+
+[chain.swap]
+# Optimism uses Uniswap V3
+default_adapter = "uniswap_v3"
+
+[chain.swap.uniswap_v3]
+swap_router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+quoter_v2 = "0x61fFE014bA17989E743c5F6cB21bF9697530B21e"
+factory = "0x1F98431c8aD98523631AE4a59f267346ea31F984"

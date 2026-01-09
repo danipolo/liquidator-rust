@@ -1,0 +1,212 @@
+# HyperLend Asset Configuration
+# All 17 supported assets with oracle configurations
+
+# =============================================================================
+# Standard Assets / Stablecoins
+# =============================================================================
+
+[[assets]]
+symbol = "wHYPE"
+token = "0x5555555555555555555555555555555555555555"
+oracle = "0x40ea33ea76fbe35e9fb422edd175b8c8d84a63cc"
+oracle_type = "RedStone"
+decimals = 18
+staleness_secs = 3600
+priority = 30
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "USDT"
+token = "0xB8CE59FC3717ada4C02eaDF9682A266239C4ebb0"
+oracle = "0x5d5ee47c6bcf6b05b2a3f65c4e37312dc978d30d"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 32400  # 9+ hours (anomalous)
+priority = 90           # High priority due to stale oracle
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USDC"
+token = "0x0b88330c2d72e1b8a29a79e34a6f19a5af34c30f"
+oracle = "0x4c7b17c8b4f3ff766889aaf2ac5a6db565fd61a9"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 3600
+priority = 30
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USDe"
+token = "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34"
+oracle = "0x6926d2c4f5aecd82192a9faf7b8e09a1d103bf23"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 3600
+priority = 30
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "USDHL"
+token = "0x00b50A0000000000000000000000000000000005"
+oracle = "0xa19b7fe6ffd492dd84adf38d37b974cb52f40267"
+oracle_type = "Pyth"
+decimals = 18
+staleness_secs = 60     # Very fresh (~1 minute)
+priority = 50
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USR"
+token = "0x00aD31b9C3bECDE4E8B6bAC8b6f2be3dAE4E5E77"
+oracle = "0x29d2fec890b037b2d34f061f9a50f76f85ddbcae"
+oracle_type = "RedStone"
+decimals = 18
+staleness_secs = 7200   # ~2 hours
+priority = 30
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "USDH"
+token = "0x1111111111111111111111111111111111111111"
+oracle = "0xe18aad6733d1db21e19cb83b697082d3d4ee5170"
+oracle_type = "RedStone"
+decimals = 18
+staleness_secs = 3600
+priority = 30
+liquidation_bonus_bps = 450
+active = true
+
+# =============================================================================
+# LST Assets (DualOracle - HIGH PRIORITY for tier transitions)
+# =============================================================================
+
+[[assets]]
+symbol = "kHYPE"
+token = "0x0fD73e4dFCb3d4E97F6E2F6DBf8E3a5BE8dE096D"
+oracle = "0x6dcfa746f7b11918ef3522c92e6429ca589c3875"
+oracle_type = "DualOracle"
+decimals = 18
+staleness_secs = 1800   # 30 min primary tier
+priority = 80           # High priority - DualOracle opportunities
+liquidation_bonus_bps = 750
+active = true
+
+[[assets]]
+symbol = "wstHYPE"
+token = "0x094e8E3dFCb3d4E97F6E2F6DBf8E3a5BE8dE0380"
+oracle = "0x41c56e47a104e59e5cbf17b7813470bca72e94a7"
+oracle_type = "DualOracle"
+decimals = 18
+staleness_secs = 1800
+priority = 80
+liquidation_bonus_bps = 750
+active = true
+
+[[assets]]
+symbol = "beHYPE"
+token = "0x00d8FCE3dFCb3d4E97F6E2F6DBf8E3a5BE8dEA90"
+oracle = "0x19067140d758a4addd2d19b5c678e25062a17754"
+oracle_type = "DualOracle"
+decimals = 18
+staleness_secs = 1800
+priority = 60
+liquidation_bonus_bps = 750
+active = true
+
+# =============================================================================
+# Synthetic Assets
+# =============================================================================
+
+[[assets]]
+symbol = "UBTC"
+token = "0x009FDBe3dFCb3d4E97F6E2F6DBf8E3a5BE8dE630"
+oracle = "0x3587a73aa02519335a8a6053a97657bece0bc2cc"
+oracle_type = "RedStone"
+decimals = 8
+staleness_secs = 5400   # ~1.5 hours
+priority = 50
+liquidation_bonus_bps = 650
+active = true
+
+[[assets]]
+symbol = "UETH"
+token = "0x00Be67e3dFCb3d4E97F6E2F6DBf8E3a5BE8dE070"
+oracle = "0x4bad96dd1c7d541270a0c92e1d4e5f12eeea7a57"
+oracle_type = "RedStone"
+decimals = 18
+staleness_secs = 5400
+priority = 50
+liquidation_bonus_bps = 650
+active = true
+
+[[assets]]
+symbol = "USOL"
+token = "0x0068fe3dFCb3d4E97F6E2F6DBf8E3a5BE8dE2900"
+oracle = "0xb3d84379b1aabaf81b294ffdb5e68a31f7f7cce6"
+oracle_type = "RedStone"
+decimals = 9
+staleness_secs = 5400
+priority = 50
+liquidation_bonus_bps = 700
+active = true
+
+# =============================================================================
+# Staked Yield Assets
+# =============================================================================
+
+[[assets]]
+symbol = "sUSDe"
+token = "0x0211Ce3dFCb3d4E97F6E2F6DBf8E3a5BE8dEd200"
+oracle = "0x243507c8c114618d7c8ad94b51118db7b4e32ece"
+oracle_type = "RedStone"
+decimals = 18
+staleness_secs = 3600
+priority = 40
+liquidation_bonus_bps = 600
+active = true
+
+# =============================================================================
+# Pendle PT Assets (maturity-aware pricing)
+# =============================================================================
+
+[[assets]]
+symbol = "PT-kHYPE-19MAR2026"
+token = "0x0ea84e3dFCb3d4E97F6E2F6DBf8E3a5BE8dEf500"
+oracle = "0x53d5bf9a6b4360d649653ba5d2af7c3d27602c7e"
+oracle_type = "PendlePT"
+decimals = 18
+staleness_secs = 3600
+priority = 40
+liquidation_bonus_bps = 1000
+active = true
+maturity = 1742342400   # Mar 19, 2026 00:00:00 UTC
+
+[[assets]]
+symbol = "PT-kHYPE-13NOV2025"
+token = "0x0311de3dFCb3d4E97F6E2F6DBf8E3a5BE8dE2900"
+oracle = "0xa8a94da411425634e3ed6c331a32ab4fd774aa43"
+oracle_type = "PendlePT"
+decimals = 18
+staleness_secs = 3600
+priority = 20
+liquidation_bonus_bps = 1000
+active = false          # Expired
+maturity = 1731456000   # Nov 13, 2025 00:00:00 UTC
+
+[[assets]]
+symbol = "PT-sUSDe-25SEP2025"
+token = "0x0b737e3dFCb3d4E97F6E2F6DBf8E3a5BE8dE3500"
+oracle = "0x8514d528275025ad9be6019e6e189dfef1db6c5e"
+oracle_type = "PendlePT"
+decimals = 18
+staleness_secs = 3600
+priority = 20
+liquidation_bonus_bps = 1000
+active = false          # Expired
+maturity = 1727222400   # Sep 25, 2025 00:00:00 UTC

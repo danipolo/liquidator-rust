@@ -59,7 +59,7 @@ impl From<BalanceEntry> for BalanceData {
 
 /// Provider manager for multiple RPC connections.
 /// Uses Alloy typed providers instead of manual JSON-RPC.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProviderManager {
     /// HTTP URL (general purpose)
     http_url: String,
@@ -79,6 +79,14 @@ pub struct ProviderManager {
 
 impl ProviderManager {
     /// Create a new provider manager with Alloy providers.
+    ///
+    /// # Arguments
+    /// * `http_url` - General HTTP RPC endpoint
+    /// * `archive_url` - Archive RPC for historical queries
+    /// * `send_url` - RPC endpoint for sending transactions
+    /// * `ws_url` - WebSocket RPC for subscriptions
+    /// * `pool_address` - Lending pool contract address
+    /// * `balances_reader_address` - BalancesReader contract address
     pub async fn new(
         http_url: &str,
         archive_url: &str,
@@ -87,9 +95,46 @@ impl ProviderManager {
         pool_address: Address,
         balances_reader_address: Address,
     ) -> Result<Self> {
-        // Use HyperLend RPC for contract reads (more reliable than Alchemy for this)
-        let read_url = "https://rpc.hyperlend.finance";
+        // Use http_url for contract reads (can be overridden via with_read_url)
+        let read_url = http_url;
 
+        info!(
+            http = http_url,
+            read = read_url,
+            archive = archive_url,
+            send = send_url,
+            ws = ws_url,
+            "Initializing provider manager with Alloy providers"
+        );
+
+        // Test connection
+        let provider = ProviderBuilder::new().on_http(read_url.parse()?);
+        let block = provider.get_block_number().await?;
+        info!(block = block, "Provider connection verified");
+
+        Ok(Self {
+            http_url: http_url.to_string(),
+            read_url: read_url.to_string(),
+            archive_url: archive_url.to_string(),
+            send_url: send_url.to_string(),
+            ws_url: ws_url.to_string(),
+            pool_address,
+            balances_reader_address,
+        })
+    }
+
+    /// Create a new provider manager with a separate read URL.
+    ///
+    /// Useful when the read endpoint differs from the general HTTP endpoint.
+    pub async fn with_read_url(
+        http_url: &str,
+        read_url: &str,
+        archive_url: &str,
+        send_url: &str,
+        ws_url: &str,
+        pool_address: Address,
+        balances_reader_address: Address,
+    ) -> Result<Self> {
         info!(
             http = http_url,
             read = read_url,

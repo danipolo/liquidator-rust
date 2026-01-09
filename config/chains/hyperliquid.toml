@@ -1,0 +1,31 @@
+# HyperLiquid EVM Chain Configuration
+
+[chain]
+chain_id = 999
+name = "HyperLiquid EVM"
+native_token = "HYPE"
+block_time_ms = 200
+explorer_url = "https://hyperliquid.cloud/explorer"
+
+[chain.rpc]
+# Environment variables can be referenced with ${VAR_NAME}
+# These are defaults that can be overridden via environment
+http = "https://rpc.hyperlend.finance"
+ws = "${ALCHEMY_WS_URL}"
+archive = "https://rpc.hyperlend.finance/archive"
+send = "https://rpc.hyperliquid.xyz/evm"
+
+[chain.gas]
+# HyperLiquid uses legacy gas pricing
+pricing = "Legacy"
+limit_multiplier = 1.1
+max_gas_price_gwei = 10.0
+# Default gas price for this chain (gwei)
+default_gas_price_gwei = 1.0
+
+[chain.swap]
+# HyperLiquid uses LiquidSwap (via Liqd.ag)
+default_adapter = "liquidswap"
+
+[chain.swap.liquidswap]
+api_url = "https://liqd.ag/api"

@@ -1,0 +1,64 @@
+# AAVE V3 Optimism Deployment Configuration
+# This ties together chain, protocol, and asset configs for Optimism
+
+[deployment]
+name = "aave-v3-optimism"
+chain = "optimism"
+protocol = "aave-v3-optimism"
+assets = "aave-v3-optimism"
+
+# Contract addresses for this deployment
+[deployment.contracts]
+# Your deployed liquidator contract on Optimism
+# liquidator = "${OP_LIQUIDATOR}"
+# profit_receiver = "${OP_PROFIT_RECEIVER}"
+
+# Bot configuration for Optimism
+# Optimism has 2s blocks, similar to other L2s
+[bot]
+profile = "production"
+
+[bot.position]
+# Lower dust threshold than Ethereum due to cheaper gas
+dust_threshold_usd = 10.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.20
+seed_limit = 300
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+# Tighter trigger distances for faster L2 blocks
+critical_trigger_distance_pct = 0.3
+hot_trigger_distance_pct = 1.5
+warm_trigger_distance_pct = 4.0
+
+[bot.scanner]
+# Adjusted for 2s block time
+bootstrap_interval_secs = 120
+critical_interval_ms = 200
+hot_interval_ms = 1000
+warm_interval_ms = 5000
+cold_interval_ms = 30000
+dual_oracle_interval_ms = 5000
+heartbeat_interval_ms = 2000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.04
+price_deviation_bps = 75
+ttl_secs = 20
+
+[bot.liquidation]
+close_factor = 0.5
+# Lower min profit due to cheaper gas on L2
+min_profit_usd = 5.0
+max_slippage_pct = 1.0
+gas_multiplier = 1.2
+
+[bot.gas]
+# EIP-1559 gas settings for Optimism
+max_gas_price_gwei = 50.0
+priority_fee_gwei = 0.001
+base_fee_buffer = 1.5

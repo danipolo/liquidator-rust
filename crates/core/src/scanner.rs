@@ -20,8 +20,8 @@ use crate::position::{CollateralData, DebtData, PositionTier, TrackedPosition};
 use crate::position_tracker::TieredPositionTracker;
 use crate::pre_staging::PreStager;
 use crate::sensitivity::PositionSensitivity;
-use hyperlend_api::BlockAnaliticaClient;
-use hyperlend_chain::{
+use liquidator_api::{BlockAnaliticaClient, SwapParams};
+use liquidator_chain::{
     DualOracleMonitor, EventListener, OracleMonitor, OracleUpdate, PoolEvent, ProviderManager,
 };
 
@@ -457,7 +457,7 @@ impl Scanner {
         self.oracle_monitor.update_price(update.clone());
         self.tracker.update_price(
             update.asset,
-            hyperlend_chain::OraclePrice {
+            liquidator_chain::OraclePrice {
                 price: update.price,
                 updated_at: update.timestamp,
                 block_number: update.block_number,
@@ -793,8 +793,8 @@ impl Scanner {
     async fn update_position_from_data(
         &self,
         user: &Address,
-        supplies: Vec<hyperlend_chain::BalanceData>,
-        borrows: Vec<hyperlend_chain::BalanceData>,
+        supplies: Vec<liquidator_chain::BalanceData>,
+        borrows: Vec<liquidator_chain::BalanceData>,
     ) -> Result<()> {
         let mut position = TrackedPosition::new(*user);
 
@@ -880,18 +880,18 @@ impl Scanner {
             .largest_debt()
             .ok_or_else(|| anyhow::anyhow!("No debt"))?;
 
-        // Get swap route (with fallback to direct route if API fails)
+        // Get swap route using chain-aware router registry
         let collateral_amount = collateral.amount / U256::from(2); // 50% close factor
+        let swap_params = SwapParams::new(
+            *collateral_asset,
+            *debt_asset,
+            collateral_amount,
+            collateral.decimals,
+        );
         let swap_route = match self
             .liquidator
-            .liqd_client()
-            .get_swap_route(
-                *collateral_asset,
-                *debt_asset,
-                collateral_amount,
-                collateral.decimals,
-                true,
-            )
+            .router_registry()
+            .get_route_with_fallback(self.liquidator.chain_id(), swap_params)
             .await
         {
             Ok(route) => route,
@@ -899,13 +899,32 @@ impl Scanner {
                 warn!(
                     user = %position.user,
                     error = %e,
-                    "Swap API failed, using direct route fallback"
+                    "Swap router failed, using direct route fallback"
                 );
-                hyperlend_api::LiqdClient::create_direct_route(
-                    *collateral_asset,
-                    *debt_asset,
-                    collateral_amount,
-                )
+                // Create minimal direct route fallback
+                use liquidator_api::swap::{SwapAllocation as ApiAlloc, SwapHop, SwapRoute};
+                SwapRoute {
+                    token_in: *collateral_asset,
+                    token_out: *debt_asset,
+                    amount_in: collateral_amount,
+                    expected_output: collateral_amount,
+                    min_output: collateral_amount * U256::from(995) / U256::from(1000),
+                    hops: vec![SwapHop {
+                        allocations: vec![ApiAlloc {
+                            token_in: *collateral_asset,
+                            token_out: *debt_asset,
+                            router_index: 0,
+                            fee: 3000,
+                            amount_in: collateral_amount,
+                            stable: false,
+                        }],
+                    }],
+                    tokens: vec![*collateral_asset, *debt_asset],
+                    price_impact: None,
+                    expected_input_usd: None,
+                    expected_output_usd: None,
+                    encoded_calldata: None,
+                }
             }
         };
 
@@ -918,15 +937,53 @@ impl Scanner {
             price_snapshot.push((*debt_asset, price.price));
         }
 
-        self.pre_stager.stage(
-            position,
-            swap_route,
-            debt.amount,
-            collateral.amount / U256::from(2),
-            price_snapshot,
-        );
+        // Pre-encode calldata for fast execution path (~5ms savings)
+        let debt_to_cover = debt.amount;
+        let expected_collateral = collateral.amount / U256::from(2);
+        let min_amount_out = swap_route.min_output;
 
-        info!(user = %position.user, "Position pre-staged successfully");
+        match self.liquidator.encode_liquidation_calldata(
+            position.user,
+            *collateral_asset,
+            *debt_asset,
+            debt_to_cover,
+            &swap_route,
+            min_amount_out,
+        ) {
+            Ok(encoded_calldata) => {
+                // Use fast path with pre-encoded calldata
+                self.pre_stager.stage_with_calldata(
+                    position,
+                    swap_route,
+                    debt_to_cover,
+                    expected_collateral,
+                    price_snapshot,
+                    encoded_calldata,
+                    min_amount_out,
+                    1_600_000, // Estimated gas for liquidation
+                );
+                info!(
+                    user = %position.user,
+                    "Position pre-staged with pre-encoded calldata (FAST PATH)"
+                );
+            }
+            Err(e) => {
+                // Fallback to slow path without pre-encoding
+                warn!(
+                    user = %position.user,
+                    error = %e,
+                    "Failed to pre-encode calldata, using slow path"
+                );
+                self.pre_stager.stage(
+                    position,
+                    swap_route,
+                    debt_to_cover,
+                    expected_collateral,
+                    price_snapshot,
+                );
+                info!(user = %position.user, "Position pre-staged (slow path)");
+            }
+        }
 
         Ok(())
     }

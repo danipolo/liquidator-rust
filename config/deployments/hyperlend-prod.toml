@@ -1,0 +1,49 @@
+# HyperLend Production Deployment Configuration
+# This ties together chain, protocol, and asset configs
+
+[deployment]
+name = "hyperlend-prod"
+chain = "hyperliquid"
+protocol = "hyperlend"
+assets = "hyperlend"
+
+# Override contracts for this deployment
+[deployment.contracts]
+# liquidator = "${LIQUIDATOR}"
+# profit_receiver = "${PROFIT_RECEIVER}"
+
+# Bot configuration (overrides from conf/*.toml profiles)
+[bot]
+profile = "production"
+
+[bot.position]
+dust_threshold_usd = 10.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.15
+seed_limit = 200
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+
+[bot.scanner]
+bootstrap_interval_secs = 60
+critical_interval_ms = 100
+hot_interval_ms = 500
+warm_interval_ms = 2000
+cold_interval_ms = 10000
+dual_oracle_interval_ms = 5000
+heartbeat_interval_ms = 1000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.05
+price_deviation_bps = 50
+ttl_secs = 15
+
+[bot.liquidation]
+close_factor = 0.5
+min_profit_usd = 1.0
+max_slippage_pct = 0.5
+gas_multiplier = 1.1

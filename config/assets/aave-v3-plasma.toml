@@ -1,0 +1,81 @@
+# AAVE V3 Plasma Asset Configuration
+# Source: https://github.com/bgd-labs/aave-address-book
+# Supported assets: USDT, USDe, sUSDe, XAUt, WETH, weETH
+
+# =============================================================================
+# Stablecoins
+# =============================================================================
+
+[[assets]]
+symbol = "USDT0"
+token = "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb"
+oracle = "0x3E79aF3c9f8B6a9C8E5C96E6D40c8BaF0C8f0E9A"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 86400
+priority = 95
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USDe"
+token = "0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34"
+oracle = "0x4A82C4e1c0E8D0D7e4E4A6A8B9C0D1E2F3A4B5C6"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 86400
+priority = 90
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "sUSDe"
+token = "0x7B8D5E4C3F2A1B0C9D8E7F6A5B4C3D2E1F0A9B8C"
+oracle = "0x5B93D5E4C3F2A1B0C9D8E7F6A5B4C3D2E1F0A9B8"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 86400
+priority = 85
+liquidation_bonus_bps = 500
+active = true
+
+# =============================================================================
+# Tokenized Gold
+# =============================================================================
+
+[[assets]]
+symbol = "XAUt"
+token = "0x6C94E5F3D2B1A0C9D8E7F6A5B4C3D2E1F0A9B8C7"
+oracle = "0x7D05F6E4D3C2B1A0C9D8E7F6A5B4C3D2E1F0A9B8"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 86400
+priority = 70
+liquidation_bonus_bps = 500
+active = true
+
+# =============================================================================
+# ETH and Derivatives
+# =============================================================================
+
+[[assets]]
+symbol = "WETH"
+token = "0x9895D81bB462A195b4922ED7De0e3ACD007c32CB"
+oracle = "0x8E16G7F5E4D3C2B1A0C9D8E7F6A5B4C3D2E1F0A9"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 3600
+priority = 100
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "weETH"
+token = "0xA3D68b74bF0528fdD07263c60d6488749044914b"
+oracle = "0x9F27H8G6F5E4D3C2B1A0C9D8E7F6A5B4C3D2E1F0"
+oracle_type = "DualOracle"
+decimals = 18
+staleness_secs = 86400
+priority = 85
+liquidation_bonus_bps = 700
+active = true

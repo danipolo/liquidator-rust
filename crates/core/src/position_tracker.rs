@@ -13,7 +13,7 @@ use std::time::Instant;
 use crate::position::{PositionTier, TrackedPosition};
 use crate::pre_staging::StagedLiquidation;
 use crate::trigger_index::TriggerIndex;
-use hyperlend_chain::OraclePrice;
+use liquidator_chain::OraclePrice;
 
 /// Maximum number of critical positions to track (cache-friendly ArrayVec).
 const MAX_CRITICAL_POSITIONS: usize = 64;

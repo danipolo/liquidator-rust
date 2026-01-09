@@ -1,0 +1,64 @@
+# AAVE V3 Arbitrum Deployment Configuration
+# This ties together chain, protocol, and asset configs for Arbitrum
+
+[deployment]
+name = "aave-v3-arbitrum"
+chain = "arbitrum"
+protocol = "aave-v3-arbitrum"
+assets = "aave-v3-arbitrum"
+
+# Contract addresses for this deployment
+[deployment.contracts]
+# Your deployed liquidator contract on Arbitrum
+# liquidator = "${ARB_LIQUIDATOR}"
+# profit_receiver = "${ARB_PROFIT_RECEIVER}"
+
+# Bot configuration for Arbitrum
+# Arbitrum has ~250ms blocks, very fast L2
+[bot]
+profile = "production"
+
+[bot.position]
+# Lower dust threshold than Ethereum due to cheap gas
+dust_threshold_usd = 5.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.20
+seed_limit = 500
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+# Tight trigger distances for very fast block times
+critical_trigger_distance_pct = 0.2
+hot_trigger_distance_pct = 1.0
+warm_trigger_distance_pct = 3.0
+
+[bot.scanner]
+# Aggressive timing for 250ms blocks
+bootstrap_interval_secs = 60
+critical_interval_ms = 100
+hot_interval_ms = 500
+warm_interval_ms = 2000
+cold_interval_ms = 15000
+dual_oracle_interval_ms = 3000
+heartbeat_interval_ms = 1000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.04
+price_deviation_bps = 50
+ttl_secs = 15
+
+[bot.liquidation]
+close_factor = 0.5
+# Low min profit - gas is cheap on Arbitrum
+min_profit_usd = 2.0
+max_slippage_pct = 1.0
+gas_multiplier = 1.2
+
+[bot.gas]
+# EIP-1559 gas settings for Arbitrum
+max_gas_price_gwei = 50.0
+priority_fee_gwei = 0.1
+base_fee_buffer = 1.5

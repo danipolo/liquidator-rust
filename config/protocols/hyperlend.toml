@@ -1,0 +1,28 @@
+# HyperLend Protocol Configuration (AAVE v3 fork)
+
+[protocol]
+id = "hyperlend"
+name = "HyperLend"
+version = "aave-v3"
+chain_id = 999
+
+[protocol.contracts]
+pool = "0x00A89d7a5A02160f20150EbEA7a2b5E4879A1A8b"
+balances_reader = "0xE17ea42a8d61e50a26bec1829399071d2129845b"
+oracle = "0xC9Fb4fbE842d57EAc1dF3e641a281827493A630e"
+# Liquidator contract is deployment-specific, set via env or deployment config
+# liquidator = "${LIQUIDATOR}"
+
+[protocol.parameters]
+# AAVE v3 standard close factor (50%)
+close_factor = 0.5
+# Default liquidation bonus if not specified per asset
+default_liquidation_bonus_bps = 500
+# Health factor threshold for liquidation
+liquidation_threshold = 1.0
+
+[protocol.api]
+# BlockAnalitica API for position discovery
+position_api = "https://hyperlend-api.blockanalitica.com"
+# Liqd.ag API for swap routing
+swap_api = "https://liqd.ag/api"

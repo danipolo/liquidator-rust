@@ -1,0 +1,66 @@
+# AAVE V3 Ethereum Mainnet Deployment Configuration
+# This ties together chain, protocol, and asset configs for Ethereum
+
+[deployment]
+name = "aave-v3-ethereum"
+chain = "ethereum"
+protocol = "aave-v3-ethereum"
+assets = "aave-v3-ethereum"
+
+# Contract addresses for this deployment
+[deployment.contracts]
+# Your deployed liquidator contract on Ethereum
+# liquidator = "${ETH_LIQUIDATOR}"
+# profit_receiver = "${ETH_PROFIT_RECEIVER}"
+
+# Bot configuration for Ethereum
+# Ethereum has 12s blocks, so timing is different from HyperLiquid
+[bot]
+profile = "production"
+
+[bot.position]
+# Higher dust threshold due to gas costs on Ethereum
+dust_threshold_usd = 100.0
+bad_debt_hf_threshold = 0.1
+seed_hf_max = 1.15
+seed_limit = 500
+
+[bot.tiers]
+critical_hf_threshold = 1.02
+hot_hf_threshold = 1.08
+warm_hf_threshold = 1.15
+# Wider trigger distances due to slower block times
+critical_trigger_distance_pct = 0.5
+hot_trigger_distance_pct = 2.0
+warm_trigger_distance_pct = 5.0
+
+[bot.scanner]
+# Adjusted for 12s block time
+bootstrap_interval_secs = 300
+critical_interval_ms = 500
+hot_interval_ms = 2000
+warm_interval_ms = 10000
+cold_interval_ms = 60000
+dual_oracle_interval_ms = 10000
+heartbeat_interval_ms = 5000
+
+[bot.pre_staging]
+enabled = true
+hf_threshold = 1.03
+price_deviation_bps = 100
+ttl_secs = 30
+
+[bot.liquidation]
+close_factor = 0.5
+# Higher min profit due to gas costs
+min_profit_usd = 50.0
+max_slippage_pct = 1.0
+# Use higher gas multiplier for faster inclusion
+gas_multiplier = 1.5
+
+[bot.gas]
+# EIP-1559 gas settings for Ethereum
+max_gas_price_gwei = 200.0
+priority_fee_gwei = 2.0
+# Multiplier for base fee to ensure inclusion
+base_fee_buffer = 2.0

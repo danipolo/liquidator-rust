@@ -1,0 +1,26 @@
+# AAVE V3 on Ethereum Mainnet
+
+[protocol]
+id = "aave-v3-ethereum"
+name = "AAVE V3"
+version = "aave-v3"
+chain_id = 1
+
+[protocol.contracts]
+# AAVE V3 Ethereum Pool
+pool = "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+# Pool Data Provider for position info
+pool_data_provider = "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3"
+# AAVE Oracle
+oracle = "0x54586bE62E3c3580375aE3723C145253060Ca0C2"
+
+[protocol.parameters]
+close_factor = 0.5
+default_liquidation_bonus_bps = 500
+liquidation_threshold = 1.0
+
+[protocol.api]
+# No dedicated position API for mainnet - use on-chain queries
+position_api = ""
+# 1inch for swap routing on mainnet
+swap_api = "https://api.1inch.dev"

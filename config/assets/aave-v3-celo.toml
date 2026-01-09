@@ -1,0 +1,76 @@
+# AAVE V3 Celo Asset Configuration
+# Source: https://github.com/bgd-labs/aave-address-book
+
+# =============================================================================
+# Stablecoins
+# =============================================================================
+
+[[assets]]
+symbol = "USDC"
+token = "0xcebA9300f2b948710d2653dD7B07f33A8B32118C"
+oracle = "0xBF704f2FfdB856805cE64D085cD50427823696D7"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 86400
+priority = 95
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USDT"
+token = "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e"
+oracle = "0x1CfEb625c4e25D14D8CE5b663C6D6f0Ec74145dD"
+oracle_type = "Standard"
+decimals = 6
+staleness_secs = 86400
+priority = 90
+liquidation_bonus_bps = 450
+active = true
+
+[[assets]]
+symbol = "USDm"
+token = "0x4F604735c1cF31399C6E711D5962b2B3E0225AD3"
+oracle = "0x84E07eAa45B2E848a82B6E3F2e44CE181De71C08"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 86400
+priority = 70
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "EURm"
+token = "0x4Df3F1B9e7Da4623FD74E8E1B714C5F3b3a2B351"
+oracle = "0x206B25d1f99D6dA21f08F4C4C1A9C67E943B8C11"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 86400
+priority = 60
+liquidation_bonus_bps = 500
+active = true
+
+# =============================================================================
+# Native and ETH
+# =============================================================================
+
+[[assets]]
+symbol = "CELO"
+token = "0x471EcE3750Da237f93B8E339c536989b8978a438"
+oracle = "0x0568fD19986748cEfF3301e55c0eb1E729E0Ab7e"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 3600
+priority = 80
+liquidation_bonus_bps = 500
+active = true
+
+[[assets]]
+symbol = "WETH"
+token = "0x66803FB87aBd4aaC3cbB3fAd7C3aa01f6F3FB207"
+oracle = "0xCbDd1e890a35eD85B6E2F4b82E6a9b2C0e8A0f28"
+oracle_type = "Standard"
+decimals = 18
+staleness_secs = 3600
+priority = 100
+liquidation_bonus_bps = 500
+active = true

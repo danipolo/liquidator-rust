@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use crate::position::TrackedPosition;
 use crate::u256_math;
-use hyperlend_chain::OraclePrice;
+use liquidator_chain::OraclePrice;
 
 /// Pre-computed sensitivity coefficients for fast HF estimation.
 #[derive(Debug, Clone)]

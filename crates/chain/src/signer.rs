@@ -1,10 +1,12 @@
-//! Transaction signer and sender for HyperLend liquidations.
+//! Transaction signer and sender for liquidations.
 //! Uses Alloy providers for type-safe RPC interactions.
 //!
 //! OPTIMIZATIONS:
 //! - Cached nonce: Atomic counter avoids RPC call per transaction
-//! - Pre-computed gas: Uses fixed gas parameters for speed
+//! - Pre-computed gas: Uses configurable gas strategy for speed
+//! - Supports both Legacy and EIP-1559 gas pricing
 
+use crate::gas::{create_gas_strategy, GasParams, GasStrategy, LegacyGasStrategy};
 use alloy::network::{EthereumWallet, TransactionBuilder};
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::providers::{Provider, ProviderBuilder};
@@ -63,12 +65,12 @@ impl NonceManager {
     }
 }
 
-/// Transaction sender with signer.
+/// Transaction sender with configurable gas strategy.
 /// Uses Alloy providers for all RPC interactions.
 ///
 /// OPTIMIZATIONS:
 /// - Nonce is managed locally (no RPC call per tx)
-/// - Gas parameters are pre-configured for speed
+/// - Gas parameters are configurable via GasStrategy
 pub struct TransactionSender {
     /// RPC URL for sending transactions
     rpc_url: String,
@@ -82,22 +84,66 @@ pub struct TransactionSender {
     nonce_manager: NonceManager,
     /// Default gas limit for liquidations (pre-computed)
     default_gas_limit: u64,
-    /// Default gas price in wei (updated periodically)
-    cached_gas_price: AtomicU64,
+    /// Gas pricing strategy
+    gas_strategy: Box<dyn GasStrategy>,
+    /// Cached gas parameters (updated periodically)
+    cached_gas_params: parking_lot::RwLock<Option<GasParams>>,
 }
 
 /// Default gas limit for complex liquidations (1.6M gas)
 /// Based on real liquidation data: complex multi-hop swaps use ~1.57M gas
 const DEFAULT_LIQUIDATION_GAS_LIMIT: u64 = 1_600_000;
 
-/// Default gas price in gwei (0.7 gwei for HyperLiquid)
-const DEFAULT_GAS_PRICE_GWEI: u64 = 1;
+/// Builder for TransactionSender with flexible configuration.
+pub struct TransactionSenderBuilder {
+    rpc_url: String,
+    chain_id: u64,
+    gas_strategy: Option<Box<dyn GasStrategy>>,
+    gas_limit: Option<u64>,
+}
 
-impl TransactionSender {
-    /// Create a new transaction sender from private key.
-    ///
-    /// OPTIMIZATION: Fetches initial nonce and caches it for fast tx submission.
-    pub async fn new(private_key: &str, rpc_url: &str, chain_id: u64) -> Result<Self> {
+impl TransactionSenderBuilder {
+    /// Create a new builder.
+    pub fn new(rpc_url: impl Into<String>, chain_id: u64) -> Self {
+        Self {
+            rpc_url: rpc_url.into(),
+            chain_id,
+            gas_strategy: None,
+            gas_limit: None,
+        }
+    }
+
+    /// Set the gas strategy.
+    pub fn gas_strategy(mut self, strategy: Box<dyn GasStrategy>) -> Self {
+        self.gas_strategy = Some(strategy);
+        self
+    }
+
+    /// Set a custom gas limit.
+    pub fn gas_limit(mut self, limit: u64) -> Self {
+        self.gas_limit = Some(limit);
+        self
+    }
+
+    /// Set gas strategy from chain config parameters.
+    pub fn gas_from_config(
+        mut self,
+        pricing_model: &str,
+        default_gas_price_gwei: f64,
+        max_gas_price_gwei: f64,
+        priority_fee_gwei: Option<f64>,
+    ) -> Self {
+        self.gas_strategy = Some(create_gas_strategy(
+            pricing_model,
+            default_gas_price_gwei,
+            max_gas_price_gwei,
+            priority_fee_gwei,
+        ));
+        self
+    }
+
+    /// Build the TransactionSender.
+    pub async fn build(self, private_key: &str) -> Result<TransactionSender> {
         // Parse private key (with or without 0x prefix)
         let key_str = private_key.trim_start_matches("0x");
         let signer: PrivateKeySigner = key_str.parse()?;
@@ -105,32 +151,68 @@ impl TransactionSender {
         let wallet = EthereumWallet::from(signer);
 
         // Create provider for initial queries
-        let provider = ProviderBuilder::new().on_http(rpc_url.parse()?);
+        let provider = ProviderBuilder::new().on_http(self.rpc_url.parse()?);
 
         // Fetch initial nonce from chain
         let initial_nonce = provider.get_transaction_count(address).await?;
         let nonce_manager = NonceManager::new(initial_nonce);
 
-        // Fetch initial gas price
-        let gas_price = provider.get_gas_price().await.unwrap_or((DEFAULT_GAS_PRICE_GWEI as u128) * 1_000_000_000);
+        // Use provided gas strategy or default to Legacy
+        let gas_strategy = self.gas_strategy.unwrap_or_else(|| {
+            Box::new(LegacyGasStrategy::new(
+                1_000_000_000,  // 1 gwei default
+                10_000_000_000, // 10 gwei max
+            ))
+        });
+
+        // Fetch initial gas params
+        let initial_gas_params = gas_strategy.fetch_params(&self.rpc_url).await.ok();
+        let rpc_url = self.rpc_url;
 
         info!(
             address = %address,
-            chain_id = chain_id,
+            chain_id = self.chain_id,
             initial_nonce = initial_nonce,
-            gas_price_gwei = gas_price / 1_000_000_000,
-            "Transaction sender initialized with cached nonce"
+            gas_strategy = gas_strategy.strategy_name(),
+            "Transaction sender initialized"
         );
 
-        Ok(Self {
-            rpc_url: rpc_url.to_string(),
+        Ok(TransactionSender {
+            rpc_url,
             wallet,
             address,
-            chain_id,
+            chain_id: self.chain_id,
             nonce_manager,
-            default_gas_limit: DEFAULT_LIQUIDATION_GAS_LIMIT,
-            cached_gas_price: AtomicU64::new(gas_price as u64),
+            default_gas_limit: self.gas_limit.unwrap_or(DEFAULT_LIQUIDATION_GAS_LIMIT),
+            gas_strategy,
+            cached_gas_params: parking_lot::RwLock::new(initial_gas_params),
         })
+    }
+}
+
+impl TransactionSender {
+    /// Create a new transaction sender from private key.
+    ///
+    /// Uses Legacy gas pricing by default. For EIP-1559, use `TransactionSenderBuilder`.
+    ///
+    /// OPTIMIZATION: Fetches initial nonce and caches it for fast tx submission.
+    pub async fn new(private_key: &str, rpc_url: &str, chain_id: u64) -> Result<Self> {
+        TransactionSenderBuilder::new(rpc_url, chain_id)
+            .build(private_key)
+            .await
+    }
+
+    /// Create with a specific gas strategy.
+    pub async fn with_gas_strategy(
+        private_key: &str,
+        rpc_url: &str,
+        chain_id: u64,
+        gas_strategy: Box<dyn GasStrategy>,
+    ) -> Result<Self> {
+        TransactionSenderBuilder::new(rpc_url, chain_id)
+            .gas_strategy(gas_strategy)
+            .build(private_key)
+            .await
     }
 
     /// Create synchronously (for compatibility) - will block on async init.
@@ -138,11 +220,22 @@ impl TransactionSender {
         tokio::runtime::Handle::current().block_on(Self::new(private_key, rpc_url, chain_id))
     }
 
+    /// Get the current gas strategy name.
+    pub fn gas_strategy_name(&self) -> &'static str {
+        self.gas_strategy.strategy_name()
+    }
+
+    /// Get cached gas parameters (if available).
+    pub fn cached_gas_params(&self) -> Option<GasParams> {
+        self.cached_gas_params.read().clone()
+    }
+
     /// Send a transaction and wait for confirmation.
     ///
     /// OPTIMIZATIONS:
     /// - Uses cached nonce (no RPC call)
     /// - Uses pre-computed gas limit (no estimation call)
+    /// - Applies gas strategy for appropriate pricing
     ///
     /// Latency: ~50ms vs ~100ms before optimizations
     pub async fn send_transaction(
@@ -157,7 +250,8 @@ impl TransactionSender {
             to = %to,
             calldata_len = calldata.len(),
             value = %value,
-            "Preparing transaction (optimized path)"
+            gas_strategy = self.gas_strategy.strategy_name(),
+            "Preparing transaction"
         );
 
         // TIMING: Nonce fetch (should be ~0ms with cache)
@@ -165,35 +259,44 @@ impl TransactionSender {
         let nonce = self.nonce_manager.next();
         let nonce_elapsed = nonce_start.elapsed();
 
-        // TIMING: Gas price fetch (should be ~0ms with cache)
+        // TIMING: Gas params (use cache or fetch)
         let gas_start = Instant::now();
-        let gas_price = self.cached_gas_price.load(Ordering::Relaxed) as u128;
+        let gas_params = {
+            let cached = self.cached_gas_params.read().clone();
+            match cached {
+                Some(params) => params,
+                None => self.gas_strategy.fetch_params(&self.rpc_url).await?,
+            }
+        };
         let gas_elapsed = gas_start.elapsed();
 
         // TIMING: Transaction build
         let build_start = Instant::now();
-        let tx = TransactionRequest::default()
+        let mut tx = TransactionRequest::default()
             .with_to(to)
             .with_input(calldata)
             .with_value(value)
             .with_nonce(nonce)
             .with_gas_limit(self.default_gas_limit)
-            .with_gas_price(gas_price)
             .with_chain_id(self.chain_id);
+
+        // Apply gas strategy (Legacy or EIP-1559)
+        self.gas_strategy.apply_gas(&mut tx, &gas_params);
         let build_elapsed = build_start.elapsed();
 
         info!(
             to = %to,
             nonce = nonce,
             gas_limit = self.default_gas_limit,
-            gas_price_gwei = gas_price / 1_000_000_000,
+            gas_strategy = self.gas_strategy.strategy_name(),
+            gas_price = ?gas_params.effective_gas_price() / 1_000_000_000,
             nonce_us = nonce_elapsed.as_micros(),
             gas_us = gas_elapsed.as_micros(),
             build_us = build_elapsed.as_micros(),
-            "Sending transaction (cached nonce + gas)"
+            "Sending transaction"
         );
 
-        // TIMING: Provider creation
+        // TIMING: Provider creation with wallet
         let provider_start = Instant::now();
         let provider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
@@ -256,16 +359,24 @@ impl TransactionSender {
         gas_limit: u64,
     ) -> Result<B256> {
         let nonce = self.nonce_manager.next();
-        let gas_price = self.cached_gas_price.load(Ordering::Relaxed) as u128;
 
-        let tx = TransactionRequest::default()
+        let gas_params = {
+            let cached = self.cached_gas_params.read().clone();
+            match cached {
+                Some(params) => params,
+                None => self.gas_strategy.fetch_params(&self.rpc_url).await?,
+            }
+        };
+
+        let mut tx = TransactionRequest::default()
             .with_to(to)
             .with_input(calldata)
             .with_value(value)
             .with_nonce(nonce)
             .with_gas_limit(gas_limit)
-            .with_gas_price(gas_price)
             .with_chain_id(self.chain_id);
+
+        self.gas_strategy.apply_gas(&mut tx, &gas_params);
 
         let provider = ProviderBuilder::new()
             .wallet(self.wallet.clone())
@@ -300,18 +411,19 @@ impl TransactionSender {
         }
     }
 
-    /// Update cached gas price (call periodically, e.g., every 10s).
-    pub async fn update_gas_price(&self) {
-        let provider = match ProviderBuilder::new().on_http(self.rpc_url.parse().unwrap()) {
-            p => p,
-        };
-        match provider.get_gas_price().await {
-            Ok(price) => {
-                self.cached_gas_price.store(price as u64, Ordering::Relaxed);
-                debug!(gas_price_gwei = price / 1_000_000_000, "Gas price updated");
+    /// Update cached gas parameters (call periodically, e.g., every 10s).
+    pub async fn update_gas_params(&self) {
+        match self.gas_strategy.fetch_params(&self.rpc_url).await {
+            Ok(params) => {
+                debug!(
+                    gas_price_gwei = params.effective_gas_price() / 1_000_000_000,
+                    strategy = self.gas_strategy.strategy_name(),
+                    "Gas params updated"
+                );
+                *self.cached_gas_params.write() = Some(params);
             }
             Err(e) => {
-                warn!(error = %e, "Failed to update gas price");
+                warn!(error = %e, "Failed to update gas params");
             }
         }
     }
@@ -321,9 +433,13 @@ impl TransactionSender {
         self.nonce_manager.current()
     }
 
-    /// Get cached gas price.
+    /// Get effective gas price from cached params.
     pub fn gas_price(&self) -> u64 {
-        self.cached_gas_price.load(Ordering::Relaxed)
+        self.cached_gas_params
+            .read()
+            .as_ref()
+            .map(|p| p.effective_gas_price() as u64)
+            .unwrap_or(1_000_000_000) // 1 gwei default
     }
 
     /// Get current balance.
@@ -336,6 +452,17 @@ impl TransactionSender {
     /// Get the RPC URL.
     pub fn rpc_url(&self) -> &str {
         &self.rpc_url
+    }
+}
+
+impl std::fmt::Debug for TransactionSender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TransactionSender")
+            .field("address", &self.address)
+            .field("chain_id", &self.chain_id)
+            .field("rpc_url", &self.rpc_url)
+            .field("gas_strategy", &self.gas_strategy.strategy_name())
+            .finish_non_exhaustive()
     }
 }
 
@@ -375,7 +502,8 @@ mod tests {
             private_key,
             "https://rpc.hyperliquid.xyz/evm",
             999,
-        ).await;
+        )
+        .await;
 
         assert!(sender.is_ok());
         let sender = sender.unwrap();
@@ -387,5 +515,29 @@ mod tests {
 
         // Verify initial nonce was fetched
         assert!(sender.current_nonce() >= 0);
+
+        // Verify gas strategy is Legacy by default
+        assert_eq!(sender.gas_strategy_name(), "Legacy");
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires network
+    async fn test_sender_with_eip1559() {
+        use crate::gas::Eip1559GasStrategy;
+
+        let private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+        let gas_strategy = Box::new(Eip1559GasStrategy::new(2_000_000_000, 1.5));
+
+        let sender = TransactionSender::with_gas_strategy(
+            private_key,
+            "https://eth.llamarpc.com",
+            1,
+            gas_strategy,
+        )
+        .await;
+
+        assert!(sender.is_ok());
+        let sender = sender.unwrap();
+        assert_eq!(sender.gas_strategy_name(), "EIP-1559");
     }
 }
