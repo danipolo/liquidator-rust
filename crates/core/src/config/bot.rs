@@ -359,29 +359,6 @@ impl BotConfig {
         Ok(config)
     }
 
-    /// Load a named profile from the conf directory.
-    pub fn load_profile(profile_name: &str) -> anyhow::Result<Self> {
-        // Try multiple locations
-        let paths = [
-            format!("conf/{}.toml", profile_name),
-            format!("../conf/{}.toml", profile_name),
-            format!("rust-bot/conf/{}.toml", profile_name),
-        ];
-
-        for path in paths {
-            if std::path::Path::new(&path).exists() {
-                return Self::from_file(&path);
-            }
-        }
-
-        // Fall back to default if profile not found
-        tracing::warn!(
-            profile = profile_name,
-            "Profile not found, using default config"
-        );
-        Ok(Self::default())
-    }
-
     /// Create a testing profile optimized for dust positions.
     pub fn testing() -> Self {
         Self {
@@ -495,16 +472,14 @@ impl BotConfig {
     }
 
     /// Get profile from environment variable BOT_PROFILE, or default.
+    /// Supported values: testing, production, aggressive
     pub fn from_env() -> Self {
         let profile = std::env::var("BOT_PROFILE").unwrap_or_else(|_| "default".to_string());
         match profile.to_lowercase().as_str() {
             "testing" | "test" => Self::testing(),
             "production" | "prod" => Self::production(),
             "aggressive" | "aggro" => Self::aggressive(),
-            _ => {
-                // Try to load from file
-                Self::load_profile(&profile).unwrap_or_default()
-            }
+            _ => Self::default(),
         }
     }
 

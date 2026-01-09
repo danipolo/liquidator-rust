@@ -9,9 +9,8 @@ assets = "aave-v3-optimism"
 
 # Contract addresses for this deployment
 [deployment.contracts]
-# Your deployed liquidator contract on Optimism
-# liquidator = "${OP_LIQUIDATOR}"
-# profit_receiver = "${OP_PROFIT_RECEIVER}"
+liquidator = "${OPTIMISM_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration for Optimism
 # Optimism has 2s blocks, similar to other L2s

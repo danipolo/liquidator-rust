@@ -9,10 +9,10 @@ explorer_url = "https://basescan.org"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${BASE_HTTP_RPC}"
-ws = "${BASE_WS_RPC}"
-archive = "${BASE_ARCHIVE_RPC}"
-send = "${BASE_SEND_RPC}"
+http = "${BASE_RPC_URL}"
+ws = "${BASE_WS_URL}"
+archive = "${BASE_ARCHIVE_URL}"
+send = "${BASE_SEND_URL}"
 
 [chain.gas]
 # Base uses Optimism-style EIP-1559

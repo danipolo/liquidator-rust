@@ -9,10 +9,10 @@ explorer_url = "https://celoscan.io"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${CELO_HTTP_RPC}"
-ws = "${CELO_WS_RPC}"
-archive = "${CELO_ARCHIVE_RPC}"
-send = "${CELO_SEND_RPC}"
+http = "${CELO_RPC_URL}"
+ws = "${CELO_WS_URL}"
+archive = "${CELO_ARCHIVE_URL}"
+send = "${CELO_SEND_URL}"
 
 [chain.gas]
 # Celo uses EIP-1559

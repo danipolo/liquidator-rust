@@ -263,8 +263,8 @@ impl DeploymentLoader {
             version: config.protocol.version.clone(),
             close_factor: config.protocol.parameters.close_factor,
             default_liquidation_bonus_bps: config.protocol.parameters.default_liquidation_bonus_bps,
-            position_api_url: config.protocol.api.as_ref().and_then(|a| a.position_api.clone()),
-            swap_api_url: config.protocol.api.as_ref().and_then(|a| a.swap_api.clone()),
+            position_api_url: config.protocol.api.as_ref().and_then(|a| a.position_api.clone()).filter(|s| !s.is_empty()),
+            swap_api_url: config.protocol.api.as_ref().and_then(|a| a.swap_api.clone()).filter(|s| !s.is_empty()),
         }
     }
 
@@ -348,18 +348,10 @@ impl DeploymentLoader {
     }
 
     fn build_bot_config(&self, overrides: Option<&BotConfigOverrides>) -> BotConfig {
-        // Start with base config from profile or default
-        let mut config = if let Some(ovr) = overrides {
-            if let Some(profile) = &ovr.profile {
-                BotConfig::load_profile(profile).unwrap_or_default()
-            } else {
-                BotConfig::default()
-            }
-        } else {
-            BotConfig::from_env()
-        };
+        // Start with base config from environment or default
+        let mut config = BotConfig::from_env();
 
-        // Apply overrides
+        // Apply overrides from deployment config
         if let Some(ovr) = overrides {
             if let Some(pos) = &ovr.position {
                 if let Some(v) = pos.dust_threshold_usd {

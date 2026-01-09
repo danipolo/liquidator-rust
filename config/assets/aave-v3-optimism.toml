@@ -110,7 +110,7 @@ active = true
 
 [[assets]]
 symbol = "rETH"
-token = "0x9Bcef72be871e61ED4fBbc7630889beE758681C"
+token = "0x9Bcef72be871e61ED4fBbc7630889beE758eb81D"
 oracle = "0x22F3727be377781d1579B7C9222382b21c9d1a8f"  # rETH/ETH/USD composite
 oracle_type = "DualOracle"
 decimals = 18

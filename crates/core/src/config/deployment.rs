@@ -43,9 +43,6 @@ pub struct DeploymentContracts {
 /// Bot configuration overrides.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BotConfigOverrides {
-    /// Profile name (testing, production, aggressive)
-    #[serde(default)]
-    pub profile: Option<String>,
     /// Position tracking config
     #[serde(default)]
     pub position: Option<PositionOverrides>,

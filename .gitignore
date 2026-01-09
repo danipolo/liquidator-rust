@@ -25,3 +25,9 @@ logs/
 
 # Claude Code
 .claude/
+
+# Foundry / Solidity
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/

@@ -728,9 +728,10 @@ impl Scanner {
         position.state_hash = position.compute_state_hash();
 
         // Debug: Log calculated position values
+        let hf_display = if position.health_factor > 1e10 { "∞".to_string() } else { format!("{:.4}", position.health_factor) };
         debug!(
             user = %user,
-            hf = %position.health_factor,
+            hf = %hf_display,
             tier = ?position.tier,
             collateral_usd = %position.total_collateral_usd(),
             debt_usd = %position.total_debt_usd(),
@@ -746,7 +747,7 @@ impl Scanner {
                 // Skip logging dust/bad debt - too much noise
                 debug!(
                     user = %user,
-                    hf = %position.health_factor,
+                    hf = %hf_display,
                     collateral_usd = %position.total_collateral_usd(),
                     debt_usd = %position.total_debt_usd(),
                     "BAD DEBT (dust position, skipping)"
@@ -755,7 +756,7 @@ impl Scanner {
                 // Real liquidation opportunity!
                 warn!(
                     user = %user,
-                    hf = %position.health_factor,
+                    hf = %hf_display,
                     tier = ?position.tier,
                     collateral_usd = %position.total_collateral_usd(),
                     debt_usd = %position.total_debt_usd(),
@@ -765,7 +766,7 @@ impl Scanner {
         } else if matches!(position.tier, PositionTier::Critical) {
             info!(
                 user = %user,
-                hf = %position.health_factor,
+                hf = %hf_display,
                 tier = ?position.tier,
                 "Critical position tracked"
             );

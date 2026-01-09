@@ -29,6 +29,7 @@ alloy = { version = "0.12", features = [
     "contract",
     "rpc-types",
     "json-rpc",
+    "json",  # Enable sol! macro to load from JSON artifacts
 ] }
 
 # Concurrent data structures

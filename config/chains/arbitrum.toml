@@ -9,10 +9,10 @@ explorer_url = "https://arbiscan.io"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${ARB_HTTP_RPC}"
-ws = "${ARB_WS_RPC}"
-archive = "${ARB_ARCHIVE_RPC}"
-send = "${ARB_SEND_RPC}"
+http = "${ARBITRUM_RPC_URL}"
+ws = "${ARBITRUM_WS_URL}"
+archive = "${ARBITRUM_ARCHIVE_URL}"
+send = "${ARBITRUM_SEND_URL}"
 
 [chain.gas]
 # Arbitrum uses EIP-1559 with ArbOS modifications

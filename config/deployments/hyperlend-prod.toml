@@ -9,8 +9,8 @@ assets = "hyperlend"
 
 # Override contracts for this deployment
 [deployment.contracts]
-# liquidator = "${LIQUIDATOR}"
-# profit_receiver = "${PROFIT_RECEIVER}"
+liquidator = "${HYPERLIQUID_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration (overrides from conf/*.toml profiles)
 [bot]

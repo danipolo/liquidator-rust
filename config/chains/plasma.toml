@@ -9,10 +9,10 @@ explorer_url = "https://plasmascan.to"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${PLASMA_HTTP_RPC}"
-ws = "${PLASMA_WS_RPC}"
-archive = "${PLASMA_ARCHIVE_RPC}"
-send = "${PLASMA_SEND_RPC}"
+http = "${PLASMA_RPC_URL}"
+ws = "${PLASMA_WS_URL}"
+archive = "${PLASMA_ARCHIVE_URL}"
+send = "${PLASMA_SEND_URL}"
 
 [chain.gas]
 # Plasma uses EIP-1559

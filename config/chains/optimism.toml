@@ -9,10 +9,10 @@ explorer_url = "https://optimistic.etherscan.io"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${OP_HTTP_RPC}"
-ws = "${OP_WS_RPC}"
-archive = "${OP_ARCHIVE_RPC}"
-send = "${OP_SEND_RPC}"
+http = "${OPTIMISM_RPC_URL}"
+ws = "${OPTIMISM_WS_URL}"
+archive = "${OPTIMISM_ARCHIVE_URL}"
+send = "${OPTIMISM_SEND_URL}"
 
 [chain.gas]
 # Optimism uses EIP-1559 gas pricing

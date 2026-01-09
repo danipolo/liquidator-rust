@@ -8,7 +8,7 @@ chain_id = 999
 
 [protocol.contracts]
 pool = "0x00A89d7a5A02160f20150EbEA7a2b5E4879A1A8b"
-balances_reader = "0xE17ea42a8d61e50a26bec1829399071d2129845b"
+balances_reader = "0xDB687b36cf4F1e325CdaCca641473a60949EbDF1"
 oracle = "0xC9Fb4fbE842d57EAc1dF3e641a281827493A630e"
 # Liquidator contract is deployment-specific, set via env or deployment config
 # liquidator = "${LIQUIDATOR}"

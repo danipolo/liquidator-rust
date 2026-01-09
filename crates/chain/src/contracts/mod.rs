@@ -36,6 +36,7 @@
 //! ```
 
 pub mod aave_v3;
+pub mod bindings;
 pub mod common;
 pub mod executor;
 
@@ -45,6 +46,9 @@ pub use executor::{
     build_direct_strategy, build_flash_loan_strategy, ExecutionMode, FlashLoanProvider,
     InstructionBuilder, InstructionType, LiquidationStrategy,
 };
+
+// Re-export contract bindings from JSON artifacts
+pub use bindings::{ILiquidSwap, ILiquidator, IPool, ISwapAdapter, ISwapRouter, IWETH};
 
 use alloy::primitives::{Address, Bytes, B256, U256};
 use std::sync::Arc;

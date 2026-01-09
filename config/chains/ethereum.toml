@@ -9,10 +9,10 @@ explorer_url = "https://etherscan.io"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-http = "${ETH_HTTP_RPC}"
-ws = "${ETH_WS_RPC}"
-archive = "${ETH_ARCHIVE_RPC}"
-send = "${ETH_SEND_RPC}"
+http = "${ETHEREUM_RPC_URL}"
+ws = "${ETHEREUM_WS_URL}"
+archive = "${ETHEREUM_ARCHIVE_URL}"
+send = "${ETHEREUM_SEND_URL}"
 
 [chain.gas]
 # Ethereum uses EIP-1559 gas pricing

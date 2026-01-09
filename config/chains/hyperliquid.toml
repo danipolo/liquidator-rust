@@ -9,11 +9,10 @@ explorer_url = "https://hyperliquid.cloud/explorer"
 
 [chain.rpc]
 # Environment variables can be referenced with ${VAR_NAME}
-# These are defaults that can be overridden via environment
-http = "https://rpc.hyperlend.finance"
-ws = "${ALCHEMY_WS_URL}"
-archive = "https://rpc.hyperlend.finance/archive"
-send = "https://rpc.hyperliquid.xyz/evm"
+http = "${HYPERLIQUID_RPC_URL}"
+ws = "${HYPERLIQUID_WS_URL}"
+archive = "${HYPERLIQUID_ARCHIVE_URL}"
+send = "${HYPERLIQUID_SEND_URL}"
 
 [chain.gas]
 # HyperLiquid uses legacy gas pricing

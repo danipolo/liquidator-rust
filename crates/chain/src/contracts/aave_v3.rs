@@ -30,7 +30,7 @@ sol! {
 
 // Custom liquidator contract interface with generic swap data
 sol! {
-    /// Swap allocation struct for LiquidSwap adapter (matches Solidity tuple)
+    /// Swap allocation struct for LiquidSwap adapter (matches Solidity ILiquidSwap.Swap)
     #[derive(Debug)]
     struct SwapAlloc {
         address tokenIn;
@@ -41,23 +41,27 @@ sol! {
         bool stable;
     }
 
-    /// Custom Liquidator contract interface (new signature with bytes swapData)
+    /// Custom Liquidator contract interface (matches ILiquidator.sol)
     interface ILiquidator {
         function liquidate(
-            address _user,
-            address _collateral,
-            address _debt,
-            uint256 _debtAmount,
-            uint256 _minAmountOut,
-            bytes calldata _swapData
-        ) external returns (uint256);
+            address user,
+            address collateral,
+            address debt,
+            uint256 debtAmount,
+            uint256 minAmountOut,
+            bytes calldata swapData
+        ) external returns (uint256 profit);
 
         function rescueTokens(
-            address _token,
-            uint256 _amount,
-            bool _max,
-            address _to
+            address token,
+            uint256 amount,
+            bool max,
+            address to
         ) external;
+
+        function setAdapter(uint8 adapterType, address adapter) external;
+
+        function adapters(uint8 adapterType) external view returns (address);
     }
 }
 
@@ -67,37 +71,37 @@ pub mod aave_v3_signatures {
 
     /// keccak256("Supply(address,address,address,uint256,uint16)")
     pub const SUPPLY: B256 = B256::new([
-        0x2b, 0x62, 0x7c, 0xe5, 0x32, 0x47, 0xe1, 0x4b, 0x2c, 0x94, 0x3c, 0xb3, 0x84, 0xf6, 0x22,
-        0xb9, 0x70, 0x64, 0x99, 0x4c, 0x68, 0x32, 0x18, 0x0f, 0x2a, 0x71, 0x7c, 0x7f, 0xa2, 0xac,
-        0xe2, 0x9e,
+        0x2b, 0x62, 0x77, 0x36, 0xbc, 0xa1, 0x5c, 0xd5, 0x38, 0x1d, 0xcf, 0x80, 0xb0, 0xbf, 0x11,
+        0xfd, 0x19, 0x7d, 0x01, 0xa0, 0x37, 0xc5, 0x2b, 0x92, 0x7a, 0x88, 0x1a, 0x10, 0xfb, 0x73,
+        0xba, 0x61,
     ]);
 
     /// keccak256("Withdraw(address,address,address,uint256)")
     pub const WITHDRAW: B256 = B256::new([
-        0x31, 0x15, 0xd1, 0x44, 0x9a, 0x7b, 0x73, 0x2c, 0x4a, 0x14, 0x53, 0x4b, 0x82, 0x26, 0x19,
-        0xf7, 0x2c, 0xc4, 0xd7, 0x0e, 0xf5, 0x2d, 0x8e, 0x0e, 0x2a, 0x7d, 0x6d, 0x80, 0x6b, 0x48,
-        0xd8, 0x39,
+        0x31, 0x15, 0xd1, 0x44, 0x9a, 0x7b, 0x73, 0x2c, 0x98, 0x6c, 0xba, 0x18, 0x24, 0x4e, 0x89,
+        0x7a, 0x45, 0x0f, 0x61, 0xe1, 0xbb, 0x8d, 0x58, 0x9c, 0xd2, 0xe6, 0x9e, 0x6c, 0x89, 0x24,
+        0xf9, 0xf7,
     ]);
 
     /// keccak256("Borrow(address,address,address,uint256,uint8,uint256,uint16)")
     pub const BORROW: B256 = B256::new([
-        0xb3, 0xd0, 0x84, 0x82, 0x0f, 0xb1, 0xa9, 0xde, 0xcf, 0xef, 0xf7, 0xce, 0x23, 0xfb, 0x0d,
-        0xb6, 0x95, 0x43, 0xa8, 0xae, 0x27, 0x5f, 0xde, 0x06, 0x3a, 0xba, 0xf5, 0x81, 0x2f, 0x3c,
-        0xc5, 0x88,
+        0xb3, 0xd0, 0x84, 0x82, 0x0f, 0xb1, 0xa9, 0xde, 0xcf, 0xfb, 0x17, 0x64, 0x36, 0xbd, 0x02,
+        0x55, 0x8d, 0x15, 0xfa, 0xc9, 0xb0, 0xdd, 0xfe, 0xd8, 0xc4, 0x65, 0xbc, 0x73, 0x59, 0xd7,
+        0xdc, 0xe0,
     ]);
 
     /// keccak256("Repay(address,address,address,uint256,bool)")
     pub const REPAY: B256 = B256::new([
-        0xa5, 0x34, 0xc8, 0xdc, 0xe0, 0x52, 0x79, 0xf5, 0xb3, 0x05, 0xbd, 0xfd, 0xa9, 0x35, 0x48,
-        0x8f, 0xf4, 0xf1, 0xc8, 0x3d, 0xd2, 0x62, 0x1e, 0x7e, 0xb0, 0x56, 0xd7, 0xa5, 0x93, 0x98,
-        0x74, 0x80,
+        0xa5, 0x34, 0xc8, 0xdb, 0xe7, 0x1f, 0x87, 0x1f, 0x9f, 0x35, 0x30, 0xe9, 0x7a, 0x74, 0x60,
+        0x1f, 0xea, 0x17, 0xb4, 0x26, 0xca, 0xe0, 0x2e, 0x1c, 0x5a, 0xee, 0x42, 0xc9, 0x6c, 0x78,
+        0x40, 0x51,
     ]);
 
     /// keccak256("LiquidationCall(address,address,address,uint256,uint256,address,bool)")
     pub const LIQUIDATION_CALL: B256 = B256::new([
-        0xe4, 0x13, 0xa3, 0x21, 0xe8, 0x68, 0x14, 0x69, 0x7e, 0x5d, 0x12, 0x0c, 0xb6, 0x28, 0x45,
-        0x1e, 0x97, 0x08, 0x86, 0x7c, 0xfd, 0x6a, 0x6c, 0xd8, 0x16, 0xd2, 0xe7, 0xb0, 0xb4, 0xd0,
-        0xb4, 0x80,
+        0xe4, 0x13, 0xa3, 0x21, 0xe8, 0x68, 0x1d, 0x83, 0x1f, 0x4d, 0xbc, 0xcb, 0xca, 0x79, 0x0d,
+        0x29, 0x52, 0xb5, 0x6f, 0x97, 0x79, 0x08, 0xe4, 0x5b, 0xe3, 0x73, 0x35, 0x53, 0x3e, 0x00,
+        0x52, 0x86,
     ]);
 
     /// Get all pool event signatures.
@@ -297,9 +301,9 @@ pub fn encode_uniswap_v3_data(
     wrap_swap_data(SwapAdapter::UniswapV3, raw)
 }
 
-/// Encode liquidation calldata for the new contract interface.
+/// Encode liquidation calldata for the contract interface.
 ///
-/// New signature: liquidate(user, collateral, debt, debtAmount, minAmountOut, swapData)
+/// Signature: liquidate(user, collateral, debt, debtAmount, minAmountOut, swapData)
 pub fn encode_liquidation(
     user: Address,
     collateral: Address,
@@ -309,12 +313,12 @@ pub fn encode_liquidation(
     swap_data: Bytes,
 ) -> Bytes {
     let call = ILiquidator::liquidateCall {
-        _user: user,
-        _collateral: collateral,
-        _debt: debt,
-        _debtAmount: debt_to_cover,
-        _minAmountOut: min_amount_out,
-        _swapData: swap_data,
+        user,
+        collateral,
+        debt,
+        debtAmount: debt_to_cover,
+        minAmountOut: min_amount_out,
+        swapData: swap_data,
     };
 
     Bytes::from(call.abi_encode())
@@ -375,10 +379,10 @@ pub fn encode_pool_liquidation(
 /// Encode rescue tokens calldata (rescues all tokens).
 pub fn encode_rescue_tokens(token: Address, recipient: Address) -> Bytes {
     let call = ILiquidator::rescueTokensCall {
-        _token: token,
-        _amount: U256::ZERO,
-        _max: true,
-        _to: recipient,
+        token,
+        amount: U256::ZERO,
+        max: true,
+        to: recipient,
     };
     Bytes::from(call.abi_encode())
 }
@@ -386,10 +390,10 @@ pub fn encode_rescue_tokens(token: Address, recipient: Address) -> Bytes {
 /// Encode rescue tokens calldata with specific amount.
 pub fn encode_rescue_tokens_amount(token: Address, amount: U256, recipient: Address) -> Bytes {
     let call = ILiquidator::rescueTokensCall {
-        _token: token,
-        _amount: amount,
-        _max: false,
-        _to: recipient,
+        token,
+        amount,
+        max: false,
+        to: recipient,
     };
     Bytes::from(call.abi_encode())
 }

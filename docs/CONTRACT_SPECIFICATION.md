@@ -170,7 +170,6 @@ struct UniswapV3SwapData {
 ## Project Structure
 
 ```
-contracts/
 ├── foundry.toml
 ├── remappings.txt
 ├── .env.example
