@@ -1,0 +1,26 @@
+# AAVE V3 on Base
+
+[protocol]
+id = "aave-v3-base"
+name = "AAVE V3 Base"
+version = "aave-v3"
+chain_id = 8453
+
+[protocol.contracts]
+# AAVE V3 Base Pool
+pool = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5"
+# Pool Data Provider / Balances Reader
+balances_reader = "${BASE_BALANCES_READER}"
+# AAVE Oracle
+oracle = "0x2Cc0Fc26eD4563A5ce5e8bdcfe1A2878676Ae156"
+
+[protocol.parameters]
+close_factor = 0.5
+default_liquidation_bonus_bps = 500
+liquidation_threshold = 1.0
+
+[protocol.api]
+position_api = ""
+# 1inch for swap routing on Base
+swap_api = "https://api.1inch.dev"
+

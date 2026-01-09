@@ -10,8 +10,8 @@ assets = "aave-v3-arbitrum"
 # Contract addresses for this deployment
 [deployment.contracts]
 # Your deployed liquidator contract on Arbitrum
-# liquidator = "${ARB_LIQUIDATOR}"
-# profit_receiver = "${ARB_PROFIT_RECEIVER}"
+liquidator = "${ARBITRUM_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration for Arbitrum
 # Arbitrum has ~250ms blocks, very fast L2

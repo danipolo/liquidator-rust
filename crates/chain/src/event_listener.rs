@@ -382,9 +382,10 @@ fn parse_pool_event(log: Log) -> Option<PoolEvent> {
 
     let sig = log.topics()[0];
 
-    if sig == event_signatures::SUPPLY {
-        parse_supply_event(log, block_number, tx_hash)
-    } else if sig == event_signatures::WITHDRAW {
+    // Supply events are filtered out to reduce unnecessary tracking
+    // if sig == event_signatures::SUPPLY {
+    //     parse_supply_event(log, block_number, tx_hash)
+    if sig == event_signatures::WITHDRAW {
         parse_withdraw_event(log, block_number, tx_hash)
     } else if sig == event_signatures::BORROW {
         parse_borrow_event(log, block_number, tx_hash)

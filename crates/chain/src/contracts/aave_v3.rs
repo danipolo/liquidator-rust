@@ -105,8 +105,9 @@ pub mod aave_v3_signatures {
     ]);
 
     /// Get all pool event signatures.
+    /// Note: Supply events are excluded to reduce unnecessary tracking
     pub fn pool_signatures() -> Vec<B256> {
-        vec![SUPPLY, WITHDRAW, BORROW, REPAY, LIQUIDATION_CALL]
+        vec![WITHDRAW, BORROW, REPAY, LIQUIDATION_CALL]
     }
 }
 

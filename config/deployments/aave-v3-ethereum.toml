@@ -10,8 +10,8 @@ assets = "aave-v3-ethereum"
 # Contract addresses for this deployment
 [deployment.contracts]
 # Your deployed liquidator contract on Ethereum
-# liquidator = "${ETH_LIQUIDATOR}"
-# profit_receiver = "${ETH_PROFIT_RECEIVER}"
+liquidator = "${ETHEREUM_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration for Ethereum
 # Ethereum has 12s blocks, so timing is different from HyperLiquid

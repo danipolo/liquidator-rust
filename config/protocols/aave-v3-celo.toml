@@ -9,8 +9,8 @@ chain_id = 42220
 [protocol.contracts]
 # AAVE V3 Celo Pool
 pool = "0x3E59A31363E2ad014dcbc521c4a0d5757d9f3402"
-# Pool Data Provider
-pool_data_provider = "0x2e0f8D3B1631296cC7c56538D6Eb6032601E15ED"
+# Pool Data Provider / Balances Reader
+balances_reader = "${CELO_BALANCES_READER}"
 # AAVE Oracle
 oracle = "0x1e693D088ceFD1E95ba4c4a5F7EeA41a1Ec37e8b"
 # Pool Addresses Provider

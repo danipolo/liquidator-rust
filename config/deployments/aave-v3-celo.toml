@@ -10,8 +10,8 @@ assets = "aave-v3-celo"
 # Contract addresses for this deployment
 [deployment.contracts]
 # Your deployed liquidator contract on Celo
-# liquidator = "${CELO_LIQUIDATOR}"
-# profit_receiver = "${CELO_PROFIT_RECEIVER}"
+liquidator = "${CELO_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration for Celo
 # Celo has ~5s blocks

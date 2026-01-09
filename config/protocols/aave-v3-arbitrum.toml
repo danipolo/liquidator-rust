@@ -9,8 +9,8 @@ chain_id = 42161
 [protocol.contracts]
 # AAVE V3 Arbitrum Pool
 pool = "0x794a61358D6845594F94dc1DB02A252b5b4814aD"
-# Pool Data Provider
-pool_data_provider = "0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654"
+# Pool Data Provider / Balances Reader
+balances_reader = "${ARBITRUM_BALANCES_READER}"
 # AAVE Oracle
 oracle = "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7"
 

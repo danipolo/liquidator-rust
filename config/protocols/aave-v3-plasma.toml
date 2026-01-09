@@ -9,8 +9,8 @@ chain_id = 9745
 [protocol.contracts]
 # AAVE V3 Plasma Pool
 pool = "0x925a2A7214Ed92428B5b1B090F80b25700095e12"
-# Pool Data Provider
-pool_data_provider = "0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F"
+# Pool Data Provider / Balances Reader
+balances_reader = "${PLASMA_BALANCES_READER}"
 # AAVE Oracle
 oracle = "0x33E0b3fc976DC9C516926BA48CfC0A9E10a2aAA5"
 # Pool Addresses Provider

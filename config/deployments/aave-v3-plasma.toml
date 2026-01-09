@@ -10,8 +10,8 @@ assets = "aave-v3-plasma"
 # Contract addresses for this deployment
 [deployment.contracts]
 # Your deployed liquidator contract on Plasma
-# liquidator = "${PLASMA_LIQUIDATOR}"
-# profit_receiver = "${PLASMA_PROFIT_RECEIVER}"
+liquidator = "${PLASMA_LIQUIDATOR}"
+profit_receiver = "${PROFIT_RECEIVER}"
 
 # Bot configuration for Plasma
 # Plasma has ~1s blocks - very fast
